@@ -1,24 +1,28 @@
 import { ToastContainer,toast } from 'react-toastify';
 import './index.css'
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Link,
-} from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+//Pages
+import Home from './Pages/Home'
+import Profile from './Pages/Profile'
+// Auth
+import Login from './Auth/Login'
+import Signup from './Auth/Signup';
+// Components
+import Header from './Components/Header'
+import Footer from './Components/Footer'
 
 function App() {
   return (
     <>
-      <div>
-        <h1
-        onClick={() => {
-          toast.success("HELLO WORLD")
-        }}
-        >
-          This site is being updated.
-           </h1>
-      </div>
+      <Router>
+        <Header/>
+      <Routes>
+      <Route path="/" element={<Home/>} />
+      <Route path='/login' element={<Login/>}/>
+      <Route path='/signup' element={<Signup/>}/>
+      <Route path='/profile' element={<Profile/>}/>
+      </Routes>
+      </Router>
       <ToastContainer
 position="top-right"
 autoClose={5000}
