@@ -3,12 +3,21 @@ import { FaPlane } from "react-icons/fa";
 import { Link } from "react-router-dom";
 
 export default function Header() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("userId"));
 
   useEffect(() => {
-    const email = localStorage.getItem("userId");
-    setIsLoggedIn(!!email);
+    const handleStorageChange = () => {
+      setIsLoggedIn(!!localStorage.getItem("userId"));
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("userId");
+    setIsLoggedIn(false);
+  };
 
   return (
     <header className="bg-blue-950 text-white shadow-md p-4">
@@ -35,12 +44,20 @@ export default function Header() {
           </div>
         </nav>
 
-        {/* Login/Signup Button */}
+        {/* Login/Profile Buttons */}
         <div>
           {isLoggedIn ? (
-            <Link to="/profile" className="bg-white text-blue-600 px-4 py-2 rounded-md hover:bg-gray-200">
-              Profile
-            </Link>
+            <div className="flex items-center space-x-4">
+              <Link to="/profile" className="bg-white text-blue-600 px-4 py-2 rounded-md hover:bg-gray-200">
+                Profile
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+              >
+                Logout
+              </button>
+            </div>
           ) : (
             <Link to="/signup" className="bg-white text-blue-600 px-4 py-2 rounded-md hover:bg-gray-200">
               Signup
