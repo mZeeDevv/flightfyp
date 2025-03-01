@@ -32,16 +32,18 @@ export default function Header() {
         <nav className="flex space-x-6">
           <Link to="/" className="hover:underline">Home</Link>
           <Link to="/flights" className="hover:underline">Flights</Link>
+          <Link to="/airports" className="hover:underline">Airports</Link>
+          <Link to="/carshire" className="hover:underline">Hire a Car</Link>
 
           {/* Dropdown Menu */}
-          <div className="relative group">
+          {/* <div className="relative group">
             <button className="hover:underline">Services</button>
             <div className="absolute hidden group-hover:block bg-white text-blue-600 shadow-md rounded-md w-40 mt-2">
               <Link to="/service1" className="block px-4 py-2 hover:bg-gray-200">Service 1</Link>
               <Link to="/service2" className="block px-4 py-2 hover:bg-gray-200">Service 2</Link>
               <Link to="/service3" className="block px-4 py-2 hover:bg-gray-200">Service 3</Link>
             </div>
-          </div>
+          </div> */}
         </nav>
 
         {/* Login/Profile Buttons */}

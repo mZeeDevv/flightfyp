@@ -10,17 +10,28 @@ import Signup from './Auth/Signup';
 // Components
 import Header from './Components/Header'
 import Footer from './Components/Footer'
+// Flights
+import FetchAirports from './Flights/Flights'
+// Airports
+import Airports from './Pages/Airports'
+// Cars
+import Cars from './Pages/Cars'
+
+
 
 function App() {
   return (
     <>
       <Router>
         <Header/>
+        {/* <FetchAirports/> */}
       <Routes>
       <Route path="/" element={<Home/>} />
       <Route path='/login' element={<Login/>}/>
       <Route path='/signup' element={<Signup/>}/>
       <Route path='/profile' element={<Profile/>}/>
+      <Route path='/airports' element={<Airports/>}/>
+      <Route path='/carshire' element={<Cars/>}/>
       </Routes>
       </Router>
       <ToastContainer
