@@ -1,66 +1,85 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 
-const API_URL = "https://sky-scrapper.p.rapidapi.com/api/v1/flights/searchAirport";
-const API_KEY = "aa933760d8msh85d65c4408d29f9p1cebc5jsn51f83597dca9"; // Replace if needed
+const RAPIDAPI_KEY = "aa933760d8msh85d65c4408d29f9p1cebc5jsn51f83597dca9";
+const API_HOST = "booking-com15.p.rapidapi.com";
 
-function FetchAirports() {
-  const [airports, setAirports] = useState([]); // Ensure state is an array
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+export default function Flights() {
+  const location = useLocation();
+  const { fromId, toId, departureDate, returnDate, cabinClass } = location.state || {};
+  console.log("Flights search params:", { fromId, toId, departureDate, returnDate, cabinClass });
 
-  const searchQuery = "Pakistan"; // Hardcoded search query
+  const [flightDeals, setFlightDeals] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const fetchAirports = async () => {
+    const fetchFlights = async () => {
+      if (!fromId || !toId || !departureDate) {
+        setError("Missing required search parameters.");
+        return;
+      }
+      let url = `https://${API_HOST}/api/v1/flights/searchFlights?fromId=${fromId}&toId=${toId}&departDate=${departureDate}`;
+      if (returnDate) url += `&returnDate=${returnDate}`;
+      if (cabinClass != "Do not include in request") url += `&cabinClass=${cabinClass}`;
+      console.log(url)
+
+      const options = {
+        method: "GET",
+        headers: {
+          "x-rapidapi-key": RAPIDAPI_KEY,
+          "x-rapidapi-host": API_HOST,
+        },
+      };
+
       try {
-        const response = await fetch(`${API_URL}?query=${searchQuery}`, {
-          method: "GET",
-          headers: {
-            "x-rapidapi-key": API_KEY,
-            "x-rapidapi-host": "sky-scrapper.p.rapidapi.com",
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Error: ${response.status}`);
-        }
-
+        setLoading(true);
+        setError("");
+        const response = await fetch(url, options);
         const result = await response.json();
-        console.log("API Response:", result); // Debugging log
+        console.log("API Response:", result);
 
-        // Extract the "data" array
-        if (result?.data && Array.isArray(result.data)) {
-          setAirports(result.data); // Correctly setting only the airport array
+        if (result.status === true && result.data?.flightDeals?.length > 0) {
+          setFlightDeals(result.data.flightDeals);
         } else {
-          throw new Error("Invalid response format: 'data' key missing or not an array.");
+          setError("No flight deals found.");
+          setFlightDeals([]);
         }
-      } catch (err) {
-        setError(err.message);
+      } catch (error) {
+        console.error("Error fetching flights:", error);
+        setError("Failed to fetch flight data. Please try again later.");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAirports();
-  }, []);
-
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>Error: {error}</p>;
+    fetchFlights();
+  }, [fromId, toId, departureDate, returnDate, cabinClass]);
 
   return (
-    <div>
-      <h2>Airports in {searchQuery}</h2>
-      {airports.length > 0 ? (
-        <ul>
-          {airports.map((airport, index) => (
-            <li key={index}>{airport.name} ({airport.code})</li>
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
+      <h1 className="text-3xl font-bold mb-6">Available Flight Deals</h1>
+      {loading && <div className="text-center">Loading...</div>}
+      {error && <div className="text-center text-red-500">{error}</div>}
+
+      {flightDeals.length > 0 && (
+        <div className="w-full max-w-4xl space-y-4">
+          {flightDeals.map((deal, index) => (
+            <div key={index} className="bg-white p-4 rounded-lg shadow-md">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-lg font-semibold">{deal.key}</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold">
+                    ${deal.price?.units || 0}.{deal.price?.nanos ? (deal.price.nanos / 1e9).toFixed(2).slice(2) : "00"}
+                  </p>
+                </div>
+              </div>
+            </div>
           ))}
-        </ul>
-      ) : (
-        <p>No airports found.</p>
+        </div>
       )}
     </div>
   );
 }
-
-export default FetchAirports;

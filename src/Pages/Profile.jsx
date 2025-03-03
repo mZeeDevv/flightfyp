@@ -97,84 +97,106 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen text-blue-950">
-        <p>Loading profile...</p>
+      <div className="flex justify-center items-center min-h-screen ">
+        <p className="text-white text-lg">Loading profile...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-blue-950 text-white px-6">
-      <div className="bg-white text-blue-950 p-8 rounded-lg shadow-lg w-full max-w-md">
-        <h2 className="text-2xl font-bold text-center mb-4">Profile</h2>
+    <div className="min-h-screen py-10 px-4">
+      <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl overflow-hidden">
+        <div className="p-8">
+          <h2 className="text-3xl font-bold text-gray-800 text-center mb-6">Your Profile</h2>
 
-        {editing ? (
-          <>
+          {/* Profile Section */}
+          <div className="mb-8">
+            {editing ? (
+              <>
+                <div className="space-y-4">
+                  <input
+                    type="text"
+                    value={updatedName}
+                    onChange={(e) => setUpdatedName(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Full Name"
+                  />
+                  <select
+                    value={updatedTravelClass}
+                    onChange={(e) => setUpdatedTravelClass(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="Economy">Economy</option>
+                    <option value="Business">Business</option>
+                  </select>
+                  <button
+                    onClick={handleUpdate}
+                    className="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition duration-300"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-4">
+                  <p className="text-lg text-gray-700"><strong>Name:</strong> {userData?.name}</p>
+                  <p className="text-lg text-gray-700"><strong>Email:</strong> {userData?.email}</p>
+                  <p className="text-lg text-gray-700"><strong>Travel Class:</strong> {userData?.travelClass}</p>
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition duration-300"
+                  >
+                    Edit Profile
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Change Password Section */}
+          <div className="mb-8">
+            <h3 className="text-2xl font-bold text-gray-800 mb-4">Change Password</h3>
             <input
-              type="text"
-              value={updatedName}
-              onChange={(e) => setUpdatedName(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded mb-2"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="New Password"
             />
-            <select
-              value={updatedTravelClass}
-              onChange={(e) => setUpdatedTravelClass(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded mb-2"
-            >
-              <option value="Economy">Economy</option>
-              <option value="Business">Business</option>
-            </select>
             <button
-              onClick={handleUpdate}
-              className="w-full bg-blue-950 text-white p-2 rounded hover:bg-blue-900"
+              onClick={handleChangePassword}
+              className="w-full bg-green-600 text-white p-3 rounded-lg mt-4 hover:bg-green-700 transition duration-300"
             >
-              Save Changes
+              Update Password
             </button>
-          </>
-        ) : (
-          <>
-            <p className="text-lg mb-2"><strong>Name:</strong> {userData?.name}</p>
-            <p className="text-lg mb-2"><strong>Email:</strong> {userData?.email}</p>
-            <p className="text-lg mb-4"><strong>Travel Class:</strong> {userData?.travelClass}</p>
-            <button
-              onClick={() => setEditing(true)}
-              className="w-full bg-blue-950 text-white p-2 rounded hover:bg-blue-900 mb-2"
-            >
-              Edit Profile
-            </button>
-          </>
-        )}
+          </div>
 
-        <h3 className="text-xl font-bold mt-4">Change Password</h3>
-        <input
-          type="password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          className="w-full p-2 border border-gray-300 rounded mt-2 mb-2"
-          placeholder="New Password"
-        />
-        <button
-          onClick={handleChangePassword}
-          className="w-full bg-green-600 text-white p-2 rounded hover:bg-green-700"
-        >
-          Update Password
-        </button>
+          {/* Travel History Section */}
+          <div>
+            <h3 className="text-2xl font-bold text-gray-800 mb-4">Travel History</h3>
+            <ul className="space-y-3">
+              {travelHistory.map((trip) => (
+                <li
+                  key={trip.id}
+                  className="p-4 bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
+                >
+                  <p className="text-gray-700"><strong>Destination:</strong> {trip.destination}</p>
+                  <p className="text-gray-700"><strong>Date:</strong> {trip.date}</p>
+                  <p className="text-gray-700"><strong>Class:</strong> {trip.class}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-        <h3 className="text-xl font-bold mt-4">Travel History</h3>
-        <ul className="mt-2">
-          {travelHistory.map((trip) => (
-            <li key={trip.id} className="p-2 border-b border-gray-300">
-              {trip.destination} - {trip.date} ({trip.class})
-            </li>
-          ))}
-        </ul>
-
-        <button
-          onClick={handleLogout}
-          className="w-full bg-red-600 text-white p-2 rounded hover:bg-red-700 mt-4"
-        >
-          Logout
-        </button>
+          {/* Logout Button */}
+          <button
+            onClick={handleLogout}
+            className="w-full bg-red-600 text-white p-3 rounded-lg mt-8 hover:bg-red-700 transition duration-300"
+          >
+            Logout
+          </button>
+        </div>
       </div>
     </div>
   );

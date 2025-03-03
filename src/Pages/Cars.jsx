@@ -58,9 +58,8 @@ export default function Cars() {
     };
 
     return (
-        <div className="max-w-3xl mx-auto p-6 bg-white shadow-lg rounded-lg">
+        <div className="max-w-3xl mx-auto p-6 bg-white shadow-lg rounded-lg min-h-screen">
             <h1 className="text-2xl font-bold text-center mb-4">Find Car Rental Locations</h1>
-
             {/* Search Form */}
             <form onSubmit={handleSearch} className="flex gap-2 mb-4">
                 <input

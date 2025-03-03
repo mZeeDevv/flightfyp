@@ -20,21 +20,22 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-blue-950 text-white shadow-md p-4">
+    <header className="bg-gray-900 text-white shadow-md p-4">
       <div className="container mx-auto flex justify-between items-center">
         {/* Logo */}
-        <div className="flex items-center text-xl font-bold">
+        <div className="flex items-center text-sm md:text-xl">
           <FaPlane className="mr-2" />
-          <span>Flight Finder</span>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex space-x-6">
+          <span className="font-bold md:mx-3 mx-2">Flight Finder</span>
+          <nav className="flex md:space-x-6 space-x-3 text-sm">
           <Link to="/" className="hover:underline">Home</Link>
           <Link to="/flights" className="hover:underline">Flights</Link>
           <Link to="/airports" className="hover:underline">Airports</Link>
           <Link to="/carshire" className="hover:underline">Hire a Car</Link>
+          </nav>
+        </div>
 
+        {/* Navigation */}
+        
           {/* Dropdown Menu */}
           {/* <div className="relative group">
             <button className="hover:underline">Services</button>
@@ -44,18 +45,18 @@ export default function Header() {
               <Link to="/service3" className="block px-4 py-2 hover:bg-gray-200">Service 3</Link>
             </div>
           </div> */}
-        </nav>
+        
 
         {/* Login/Profile Buttons */}
         <div>
           {isLoggedIn ? (
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
               <Link to="/profile" className="bg-white text-blue-600 px-4 py-2 rounded-md hover:bg-gray-200">
                 Profile
               </Link>
               <button
                 onClick={handleLogout}
-                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+                className="hidden md:block bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
               >
                 Logout
               </button>

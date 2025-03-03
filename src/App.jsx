@@ -11,7 +11,7 @@ import Signup from './Auth/Signup';
 import Header from './Components/Header'
 import Footer from './Components/Footer'
 // Flights
-import FetchAirports from './Flights/Flights'
+import Flights from './Flights/Flights'
 // Airports
 import Airports from './Pages/Airports'
 // Cars
@@ -32,7 +32,9 @@ function App() {
       <Route path='/profile' element={<Profile/>}/>
       <Route path='/airports' element={<Airports/>}/>
       <Route path='/carshire' element={<Cars/>}/>
+      <Route path='/flights' element={<Flights/>}/>
       </Routes>
+      <Footer/>
       </Router>
       <ToastContainer
 position="top-right"
