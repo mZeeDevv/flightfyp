@@ -2,14 +2,13 @@ import { initializeApp } from "firebase/app";
 import {getFirestore} from "firebase/firestore";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyA4VeHPB2LajOK0DKlCbK5lp3XcB5vbXsE",
-    authDomain: "flighfinder.firebaseapp.com",
-    projectId: "flighfinder",
-    storageBucket: "flighfinder.firebasestorage.app",
-    messagingSenderId: "1068807590764",
-    appId: "1:1068807590764:web:b87136dbe13750cd555949",
-    measurementId: "G-X6R31RK777"
-  };
+  apiKey: "AIzaSyAz4XS5lf2fcAPPrE_le8gIV68FoLTw-Ws",
+  authDomain: "realtor-clone-dd9da.firebaseapp.com",
+  projectId: "realtor-clone-dd9da",
+  storageBucket: "realtor-clone-dd9da.appspot.com",
+  messagingSenderId: "177826776686",
+  appId: "1:177826776686:web:a9eb6daf917e72af43887f"
+};
 
 initializeApp(firebaseConfig);
 export const db = getFirestore();

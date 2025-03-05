@@ -3,7 +3,7 @@ import CheapImg from '../assets/Cheap.webp'
 export default function Cheap() {
   return (
     <>
-    <div className='max-w-4xl mx-auto flex space-x-6 md:flex-row flex-col text-center items-center justify-center py-4'>
+    <div className='max-w-4xl mx-auto flex space-x-6 md:flex-row flex-col  items-center justify-center py-4'>
     <img src={CheapImg} alt="searchImg" width={300} />
     <div>
     <h1 className="text-2xl text-center">Cheap Car Rentals</h1>

@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { toast } from "react-toastify";
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import "react-toastify/dist/ReactToastify.css";
-
+import Spinner from '../Components/Spinner'; // Import the Spinner component
 export default function Profile() {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -12,10 +13,9 @@ export default function Profile() {
   const [updatedName, setUpdatedName] = useState("");
   const [updatedTravelClass, setUpdatedTravelClass] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [travelHistory, setTravelHistory] = useState([
-    { id: 1, destination: "New York", date: "2023-12-20", class: "Economy" },
-    { id: 2, destination: "London", date: "2023-10-15", class: "Business" },
-  ]);
+  const [profilePicture, setProfilePicture] = useState(null);
+  const [profilePictureUrl, setProfilePictureUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const navigate = useNavigate();
   const userId = localStorage.getItem("userId");
@@ -29,12 +29,12 @@ export default function Profile() {
     const fetchUserData = async () => {
       try {
         const userDoc = await getDoc(doc(db, "users", userId));
-
         if (userDoc.exists()) {
           const data = userDoc.data();
           setUserData(data);
           setUpdatedName(data.name);
           setUpdatedTravelClass(data.travelClass);
+          setProfilePictureUrl(data.profilePictureUrl || ""); // Load profile picture URL if exists
         }
       } catch (error) {
         toast.error("Error fetching user data");
@@ -49,18 +49,19 @@ export default function Profile() {
 
   const handleUpdate = async () => {
     if (!userData) return;
-
     try {
       const userRef = doc(db, "users", userId);
       await updateDoc(userRef, {
         name: updatedName,
         travelClass: updatedTravelClass,
+        profilePictureUrl, // Save the profile picture URL
       });
 
       setUserData((prev) => ({
         ...prev,
         name: updatedName,
         travelClass: updatedTravelClass,
+        profilePictureUrl,
       }));
 
       setEditing(false);
@@ -95,12 +96,51 @@ export default function Profile() {
     navigate("/login");
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen ">
-        <p className="text-white text-lg">Loading profile...</p>
-      </div>
+  const handleProfilePictureChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setProfilePicture(file);
+      uploadProfilePicture(file);
+    }
+  };
+
+  const uploadProfilePicture = async (file) => {
+    if (!file) return;
+
+    const storage = getStorage();
+    const storageRef = ref(storage, `profilePictures/${userId}/${file.name}`);
+    const uploadTask = uploadBytesResumable(storageRef, file);
+
+    setUploading(true);
+
+    uploadTask.on(
+      "state_changed",
+      (snapshot) => {
+        // Progress tracking (optional)
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        console.log(`Upload is ${progress}% done`);
+      },
+      (error) => {
+        toast.error("Error uploading profile picture");
+        console.error("Error uploading profile picture:", error);
+        setUploading(false);
+      },
+      () => {
+        // Upload completed successfully
+        getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+          setProfilePictureUrl(downloadURL);
+          setUploading(false);
+          toast.success("Profile picture uploaded successfully");
+        });
+      }
     );
+  };
+  // Show Spinner while loading or uploading
+  if (loading || uploading) {
+   return (<div className="min-h-screen flex items-center justify-center">
+      <Spinner />;
+   </div>
+   )
   }
 
   return (
@@ -108,6 +148,31 @@ export default function Profile() {
       <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl overflow-hidden">
         <div className="p-8">
           <h2 className="text-3xl font-bold text-gray-800 text-center mb-6">Your Profile</h2>
+
+          {/* Profile Picture Section */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-blue-500">
+              {profilePictureUrl ? (
+                <img
+                  src={profilePictureUrl}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                  <span className="text-gray-500 text-lg">No Image</span>
+                </div>
+              )}
+            </div>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleProfilePictureChange}
+              className="mt-4"
+              disabled={uploading}
+            />
+            {uploading && <p className="text-gray-600 mt-2">Uploading...</p>}
+          </div>
 
           {/* Profile Section */}
           <div className="mb-8">
@@ -170,23 +235,6 @@ export default function Profile() {
             >
               Update Password
             </button>
-          </div>
-
-          {/* Travel History Section */}
-          <div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-4">Travel History</h3>
-            <ul className="space-y-3">
-              {travelHistory.map((trip) => (
-                <li
-                  key={trip.id}
-                  className="p-4 bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
-                >
-                  <p className="text-gray-700"><strong>Destination:</strong> {trip.destination}</p>
-                  <p className="text-gray-700"><strong>Date:</strong> {trip.date}</p>
-                  <p className="text-gray-700"><strong>Class:</strong> {trip.class}</p>
-                </li>
-              ))}
-            </ul>
           </div>
 
           {/* Logout Button */}

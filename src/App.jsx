@@ -7,6 +7,7 @@ import Profile from './Pages/Profile'
 // Auth
 import Login from './Auth/Login'
 import Signup from './Auth/Signup';
+import Confirm from './Components/Confirm'
 // Components
 import Header from './Components/Header'
 import Footer from './Components/Footer'
@@ -33,6 +34,7 @@ function App() {
       <Route path='/airports' element={<Airports/>}/>
       <Route path='/carshire' element={<Cars/>}/>
       <Route path='/flights' element={<Flights/>}/>
+      <Route path='/confirm' element={<Confirm/>}/>
       </Routes>
       <Footer/>
       </Router>

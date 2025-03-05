@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaPlane } from "react-icons/fa";
 import { Link } from "react-router-dom";
+import Spinner from '../Components/Spinner'
 
 export default function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("userId"));
@@ -24,8 +25,10 @@ export default function Header() {
       <div className="container mx-auto flex justify-between items-center">
         {/* Logo */}
         <div className="flex items-center text-sm md:text-xl">
+           <Link className="flex items-center justify-center"to="/">
           <FaPlane className="mr-2" />
           <span className="font-bold md:mx-3 mx-2">Flight Finder</span>
+          </Link>
           <nav className="flex md:space-x-6 space-x-3 text-sm">
           <Link to="/" className="hover:underline">Home</Link>
           <Link to="/flights" className="hover:underline">Flights</Link>
