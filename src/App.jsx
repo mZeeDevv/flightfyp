@@ -13,6 +13,7 @@ import Header from './Components/Header'
 import Footer from './Components/Footer'
 // Flights
 import Flights from './Flights/Flights'
+import FlightDetails from './Flights/FlightDetails'
 // Airports
 import Airports from './Pages/Airports'
 // Cars
@@ -35,6 +36,7 @@ function App() {
       <Route path='/carshire' element={<Cars/>}/>
       <Route path='/flights' element={<Flights/>}/>
       <Route path='/confirm' element={<Confirm/>}/>
+      <Route path='/flight-details' element={<FlightDetails/>}/>
       </Routes>
       <Footer/>
       </Router>

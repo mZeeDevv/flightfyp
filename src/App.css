@@ -1,0 +1,22 @@
+.plane-animation {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f0f4f8;
+  }
+  
+  .plane-icon {
+    font-size: 4rem;
+    color: #3b82f6;
+    animation: fly 3s ease-in-out forwards infinite;
+  }
+  
+  @keyframes fly {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
