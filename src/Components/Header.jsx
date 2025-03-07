@@ -27,7 +27,7 @@ export default function Header() {
         <div className="flex items-center text-sm md:text-xl">
            <Link className="flex items-center justify-center"to="/">
           <FaPlane className="mr-2" />
-          <span className="font-bold md:mx-3 mx-2">Flight Finder</span>
+          <span className="font-bold md:mx-3 mx-2">JetSeeker</span>
           </Link>
           <nav className="flex md:space-x-6 space-x-3 text-sm">
           <Link to="/" className="hover:underline">Home</Link>
