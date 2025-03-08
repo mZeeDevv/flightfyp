@@ -18,7 +18,8 @@ import FlightDetails from './Flights/FlightDetails'
 import Airports from './Pages/Airports'
 // Cars
 import Cars from './Pages/Cars'
-
+// Admin 
+import Admin from './AdminDashboard/Admin'
 
 
 function App() {
@@ -37,6 +38,10 @@ function App() {
       <Route path='/flights' element={<Flights/>}/>
       <Route path='/confirm' element={<Confirm/>}/>
       <Route path='/flight-details' element={<FlightDetails/>}/>
+
+
+      {/* Admin Routes  */}
+      <Route path='/admin' element={<Admin/>}/>
       </Routes>
       <Footer/>
       </Router>
