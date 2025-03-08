@@ -294,11 +294,19 @@ export default function Profile() {
               <FaSignOutAlt className="mr-2" /> Logout
             </button>
             <Link
+            to='/feedback'
+            className="w-full bg-green-600 text-white p-3 rounded-lg mt-4 hover:bg-green-700 transition duration-300 flex items-center justify-center"
+            
+            >
+              Submit a Feedback
+            </Link>
+            <Link
               to="/admin"
               className="w-full bg-red-600 text-white p-3 rounded-lg mt-8 hover:bg-red-700 transition duration-300 flex items-center justify-center"
             >
               <FaSignOutAlt className="mr-2" /> Admin Dashboard
             </Link>
+
           </div>
         </div>
       </div>

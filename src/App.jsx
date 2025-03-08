@@ -20,7 +20,8 @@ import Airports from './Pages/Airports'
 import Cars from './Pages/Cars'
 // Admin 
 import Admin from './AdminDashboard/Admin'
-
+// Feedback
+import Feedback from './Feedback/Feedback'
 
 function App() {
   return (
@@ -38,7 +39,7 @@ function App() {
       <Route path='/flights' element={<Flights/>}/>
       <Route path='/confirm' element={<Confirm/>}/>
       <Route path='/flight-details' element={<FlightDetails/>}/>
-
+       <Route path='/feedback' element={<Feedback/>}/>
 
       {/* Admin Routes  */}
       <Route path='/admin' element={<Admin/>}/>

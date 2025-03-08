@@ -29,7 +29,7 @@ export default function Header() {
           </Link>
           <nav className="flex md:space-x-6 space-x-3 ml-3">
           <Link to="/" className="hover:underline">Home</Link>
-          <Link to="/flights" className="hover:underline">Flights</Link>
+          {/* <Link to="/flights" className="hover:underline">Flights</Link> */}
           <Link to="/airports" className="hover:underline">Airports</Link>
           <Link to="/carshire" className="hover:underline">Hire a Car</Link>
           </nav>
