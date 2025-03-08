@@ -7,8 +7,8 @@
   }
   
   .plane-icon {
-    font-size: 4rem;
-    color: #3b82f6;
+    font-size: 5rem;
+    color: #111827;
     animation: fly 3s ease-in-out forwards infinite;
   }
   

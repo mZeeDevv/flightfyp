@@ -3,7 +3,7 @@ import { FaFacebook, FaTwitter, FaInstagram, FaLinkedin } from "react-icons/fa";
 
 export default function Footer() {
   return (
-    <footer className="bg-gray-900 text-white py-6 mt-10">
+    <footer className="bg-gray-900 text-white py-6">
       <div className="container mx-auto text-center">
         <p className="mb-4">© {new Date().getFullYear()} All Rights Reserved</p>
         <div className="flex justify-center space-x-6">

@@ -178,7 +178,7 @@ export default function Home() {
               <button
                 onClick={handleSearch}
                 disabled={loading} // Disable button while loading
-                className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 flex items-center justify-center"
+                className="px-6 py-2 bg-[#111827] text-white font-semibold rounded-md hover:bg-[#0d131f] focus:outline-none focus:ring-2 focus:ring-[#111827] focus:ring-offset-2 flex items-center justify-center"
               >
                 {loading ? (
                   <>
