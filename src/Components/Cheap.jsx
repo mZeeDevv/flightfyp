@@ -3,14 +3,14 @@ import CheapImg from '../assets/Cheap.webp'
 export default function Cheap() {
   return (
     <>
-    <div className='max-w-4xl mx-auto flex space-x-6 md:flex-row flex-col  items-center justify-center py-4'>
-    <img src={CheapImg} alt="searchImg" width={300} />
+    <div className='max-w-4xl mx-auto flex space-x-5 md:flex-row flex-col items-center justify-center py-4'>
+    <img src={CheapImg} alt="searchImg" width={400} />
     <div>
-    <h1 className="text-2xl text-center">Cheap Car Rentals</h1>
-    <div>Cheapest way to fly
-    To save even more money and have more flexible travel options, Kiwi.com gives you the choice to arrive and depart from different airports.
+    <h1 className="text-2xl">Cheap Car Rentals</h1>
+    <div className='leading-7'>Cheapest way to fly
+    To save even more money and have more flexible travel options, JetSeeker gives you the choice to arrive and depart from different airports.
     
-    When you search for a flight to or from a city, if that city has more than one airport, Kiwi.com finds the cheapest route, even if the airport you arrive at is different from the airport you depart from.
+    When you search for a flight to or from a city, if that city has more than one airport, JetSeeker finds the cheapest route, even if the airport you arrive at is different from the airport you depart from.
     
     You can choose to remove this feature when you search, but to search and book the best low-cost route, this finds the cheapest way to fly.
     </div>

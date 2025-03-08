@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaPlane } from "react-icons/fa"; // Plane icon
-import bg from '../assets/download.avif';
+import { FaPlane } from "react-icons/fa";
 import Cheap from '../Components/Cheap';
-import "../App.css"; // CSS for animations
+import About from '../Components/About';
+import Newsletter from '../Components/Mail';
+import "../App.css"; 
+import bg from '../assets/254381.webp'
+
 
 export default function Home() {
   const [tripType, setTripType] = useState("RETURN"); // Default to return
@@ -14,7 +17,8 @@ export default function Home() {
   const [cabinClass, setCabinClass] = useState("ECONOMY");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showContent, setShowContent] = useState(false); // Control animation and content visibility
+  const [showContent, setShowContent] = useState(false); 
+  const [dynamicHeading, setDynamicHeading] = useState("Flight"); // Dynamic heading state
   const navigate = useNavigate();
 
   const RAPIDAPI_KEY = "aa933760d8msh85d65c4408d29f9p1cebc5jsn51f83597dca9";
@@ -27,6 +31,19 @@ export default function Home() {
     }, 3000); // Adjust timing based on animation duration
 
     return () => clearTimeout(timer);
+  }, []);
+
+  // Dynamic heading animation (word-by-word replacement)
+  useEffect(() => {
+    const headings = ["Flight", "Car", "Hotel"];
+    let index = 0;
+
+    const interval = setInterval(() => {
+      setDynamicHeading(headings[index]);
+      index = (index + 1) % headings.length; // Cycle through headings
+    }, 3000); // Change word every 3 seconds
+
+    return () => clearInterval(interval); // Cleanup interval on unmount
   }, []);
 
   const fetchAirportId = async (city) => {
@@ -92,7 +109,11 @@ export default function Home() {
         // Homepage content
         <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center bg-no-repeat bg-cover" style={{ backgroundImage: `url(${bg})` }}>
           <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-4xl">
-            <h1 className="text-3xl font-bold text-center mb-6">Find Your Flight</h1>
+            {/* Dynamic Heading */}
+            <h1 className="text-3xl font-bold text-center mb-6">
+              Book Cheapest{" "}
+              <span className="inline-block animate-word-change">{dynamicHeading}</span>
+            </h1>
 
             {/* Trip Type Selection */}
             <div className="flex justify-center gap-6 mb-6">
@@ -198,7 +219,10 @@ export default function Home() {
           {error && <div className="mt-6 text-center text-red-500">{error}</div>}
         </div>
       )}
+      <About/>
       <Cheap />
+      <Newsletter/>
+
     </>
   );
 }
