@@ -8,7 +8,6 @@ export default function FlightDetails() {
   const [flightDetails, setFlightDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  
 
   useEffect(() => {
     const fetchFlightDetails = async () => {
@@ -66,7 +65,6 @@ export default function FlightDetails() {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
       <h1 className="text-3xl font-bold mb-6">Flight Details</h1>
@@ -100,8 +98,78 @@ export default function FlightDetails() {
             <div className="border-b pb-4">
               <h2 className="text-xl font-semibold">Price</h2>
               <p className="text-gray-600">
-                ${flightDetails.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || "N/A"}
+                RS. {flightDetails.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || "N/A"}
               </p>
+            </div>
+            <div className="border-b pb-4">
+              <h2 className="text-xl font-semibold">Luggage Information</h2>
+              {flightDetails.segments?.map((segment, segmentIndex) => (
+                <div key={segmentIndex} className="mb-4">
+                  <p className="font-medium">Segment {segmentIndex + 1}</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Cabin Luggage */}
+                    <div>
+                      <p className="font-medium">Cabin Luggage</p>
+                      <p className="text-gray-600">
+                        {segment.travellerCabinLuggage?.[0]?.luggageAllowance?.maxPiece} piece(s),{" "}
+                        {segment.travellerCabinLuggage?.[0]?.luggageAllowance?.maxWeightPerPiece}{" "}
+                        {segment.travellerCabinLuggage?.[0]?.luggageAllowance?.massUnit}
+                      </p>
+                    </div>
+                    {/* Checked Luggage */}
+                    <div>
+                      <p className="font-medium">Checked Luggage</p>
+                      <p className="text-gray-600">
+                        {segment.travellerCheckedLuggage?.[0]?.luggageAllowance?.maxPiece} piece(s),{" "}
+                        {segment.travellerCheckedLuggage?.[0]?.luggageAllowance?.maxTotalWeight}{" "}
+                        {segment.travellerCheckedLuggage?.[0]?.luggageAllowance?.massUnit}
+                      </p>
+                    </div>
+                  </div>
+                  {/* Add a horizontal line after each segment except the last one */}
+                  {segmentIndex !== flightDetails.segments.length - 1 && (
+                    <hr className="my-4 border-t border-gray-300" />
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* Flight Stops */}
+            <div className="border-b pb-4">
+              <h2 className="text-xl font-semibold">Flight Stops</h2>
+              {flightDetails.segments?.[0]?.legs?.map((leg, index) => {
+                // Remove duplicate airlines
+                const uniqueCarriers = leg.carriersData?.filter(
+                  (carrier, carrierIndex, self) =>
+                    self.findIndex((c) => c.name === carrier.name) === carrierIndex
+                );
+
+                return (
+                  <div key={index} className={`mb-4 ${index !== flightDetails.segments[0].legs.length - 1 ? 'border-b pb-4' : ''}`}>
+                    <p className="font-medium">Leg {index + 1}</p>
+                    <p className="text-gray-600">
+                      {leg.departureAirport?.name} → {leg.arrivalAirport?.name}
+                    </p>
+                    <p className="text-gray-600">Departure: {leg.departureTime}</p>
+                    <p className="text-gray-600">Arrival: {leg.arrivalTime}</p>
+                    {/* Airline Logos and Names */}
+                    <div className="mt-2">
+                      <h3 className="text-lg font-semibold">Airline:</h3>
+                      <div className="flex flex-wrap gap-4">
+                        {uniqueCarriers?.map((carrier, carrierIndex) => (
+                          <div key={carrierIndex} className="flex items-center space-x-2">
+                            <img
+                              src={carrier.logo}
+                              alt={`${carrier.name} logo`}
+                              className="w-10 h-10 rounded-full"
+                            />
+                            <p className="text-gray-600">{carrier.name}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Additional Details */}
@@ -117,6 +185,42 @@ export default function FlightDetails() {
                   <p className="text-gray-600">{flightDetails.tripType || "N/A"}</p>
                 </div>
               </div>
+            </div>
+
+            {/* Supplier Information */}
+            <div>
+              <h2 className="text-xl font-semibold">Supplier Information</h2>
+              {flightDetails.ancillaries?.flexibleTicket?.supplierInfo ? (
+                <div>
+                  <p>{flightDetails.ancillaries.flexibleTicket.supplierInfo.name || "N/A"}</p>
+                  <p>
+                    <a
+                      href={flightDetails.ancillaries.flexibleTicket.supplierInfo.privacyPolicyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:underline"
+                    >
+                      Terms and Policy
+                    </a>
+                  </p>
+                </div>
+              ) : (
+                <p>No supplier information available.</p>
+              )}
+            </div>
+
+            {/* Travel Insurance Benefits */}
+            <div>
+              <h2 className="text-xl font-semibold">Travel Insurance Benefits</h2>
+              {flightDetails.ancillaries?.travelInsurance?.content?.benefits ? (
+                <ul className="list-disc list-inside text-gray-600">
+                  {flightDetails.ancillaries.travelInsurance.content.benefits.map((benefit, index) => (
+                    <li key={index}>{benefit}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No travel insurance benefits available.</p>
+              )}
             </div>
           </div>
         ) : (
