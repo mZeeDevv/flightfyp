@@ -12,7 +12,7 @@ export default function Feedback() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const userId = localStorage.getItem("userId");
-
+const navi = useNavigate();
   const handleSubmitFeedback = async (e) => {
     e.preventDefault();
 
@@ -40,8 +40,7 @@ export default function Feedback() {
       });
 
       toast.success("Thank you for your feedback!");
-      setFeedback(""); // Clear the input field
-      setTravelClass(""); // Reset travel class
+      navi("/profile")
     } catch (error) {
       toast.error("Error submitting feedback");
       console.error("Error submitting feedback:", error);
