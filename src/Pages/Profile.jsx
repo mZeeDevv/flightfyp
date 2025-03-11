@@ -5,8 +5,9 @@ import { db } from "../firebase";
 import { toast } from "react-toastify";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import "react-toastify/dist/ReactToastify.css";
-import { FaPlane, FaCar, FaHotel, FaUser, FaLock, FaEdit, FaSave, FaSignOutAlt } from "react-icons/fa";
+import { FaPlane, FaCar, FaHotel, FaUser, FaLock, FaEdit, FaSave } from "react-icons/fa";
 import Spinner from '../Components/Spinner'; // Import the Spinner component
+import DashboardData from '../UsesDashboard/Dashboard'; // Import the DashboardData component
 
 export default function Profile() {
   const [userData, setUserData] = useState(null);
@@ -18,13 +19,6 @@ export default function Profile() {
   const [profilePicture, setProfilePicture] = useState(null);
   const [profilePictureUrl, setProfilePictureUrl] = useState("");
   const [uploading, setUploading] = useState(false);
-
-  // Dummy data for dashboard
-  const [dashboardData, setDashboardData] = useState({
-    flights: 12,
-    carRides: 8,
-    hotels: 5,
-  });
 
   const navigate = useNavigate();
   const userId = localStorage.getItem("userId");
@@ -43,7 +37,7 @@ export default function Profile() {
           setUserData(data);
           setUpdatedName(data.name);
           setUpdatedTravelClass(data.travelClass);
-          setProfilePictureUrl(data.profilePictureUrl || ""); // Load profile picture URL if exists
+          setProfilePictureUrl(data.profilePictureUrl || "");
         }
       } catch (error) {
         toast.error("Error fetching user data");
@@ -63,7 +57,7 @@ export default function Profile() {
       await updateDoc(userRef, {
         name: updatedName,
         travelClass: updatedTravelClass,
-        profilePictureUrl, // Save the profile picture URL
+        profilePictureUrl,
       });
 
       setUserData((prev) => ({
@@ -97,12 +91,6 @@ export default function Profile() {
       toast.error("Error updating password");
       console.error("Error updating password:", error);
     }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("userId");
-    toast.success("Logged out successfully");
-    navigate("/login");
   };
 
   const handleProfilePictureChange = (e) => {
@@ -155,159 +143,156 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 py-10 px-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Dashboard Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {/* Flights Card */}
-          <div className="bg-white p-6 rounded-lg shadow-lg flex items-center">
-            <div className="bg-blue-100 p-4 rounded-full mr-4">
-              <FaPlane className="text-blue-500 text-2xl" />
-            </div>
-            <div>
-              <p className="text-gray-600">Flights Taken</p>
-              <p className="text-2xl font-bold text-gray-800">{dashboardData.flights}</p>
-            </div>
-          </div>
-
-          {/* Car Rides Card */}
-          <div className="bg-white p-6 rounded-lg shadow-lg flex items-center">
-            <div className="bg-green-100 p-4 rounded-full mr-4">
-              <FaCar className="text-green-500 text-2xl" />
-            </div>
-            <div>
-              <p className="text-gray-600">Car Rides</p>
-              <p className="text-2xl font-bold text-gray-800">{dashboardData.carRides}</p>
-            </div>
-          </div>
-
-          {/* Hotels Booked Card */}
-          <div className="bg-white p-6 rounded-lg shadow-lg flex items-center">
-            <div className="bg-purple-100 p-4 rounded-full mr-4">
-              <FaHotel className="text-purple-500 text-2xl" />
-            </div>
-            <div>
-              <p className="text-gray-600">Hotels Booked</p>
-              <p className="text-2xl font-bold text-gray-800">{dashboardData.hotels}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Profile Section */}
-        <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
-          <div className="p-8">
-            <h2 className="text-3xl font-bold text-gray-800 text-center mb-6">Your Profile</h2>
-
-            {/* Profile Picture Section */}
-            <div className="flex flex-col items-center mb-8">
-              <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-blue-500">
-                {profilePictureUrl ? (
-                  <img
-                    src={profilePictureUrl}
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                    <span className="text-gray-500 text-lg">No Image</span>
-                  </div>
-                )}
+    <div className="p-8 bg-gray-50 min-h-screen">
+      {/* Dashboard Overview */}
+      <DashboardData userId={userId}>
+        {({ dashboardData, loading: dashboardLoading }) => {
+          if (dashboardLoading) {
+            return (
+              <div className="min-h-screen flex items-center justify-center">
+                <Spinner />
               </div>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleProfilePictureChange}
-                className="mt-4"
-                disabled={uploading}
-              />
-              {uploading && <p className="text-gray-600 mt-2">Uploading...</p>}
-            </div>
+            );
+          }
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              {/* Flights Card */}
+              <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 flex items-center">
+                <div className="bg-blue-100 p-4 rounded-full mr-4">
+                  <FaPlane className="text-blue-500 text-2xl" />
+                </div>
+                <div>
+                  <p className="text-gray-600">Flights Taken</p>
+                  <p className="text-2xl font-bold text-gray-800">{dashboardData.flights}</p>
+                </div>
+              </div>
 
-            {/* Profile Section */}
-            <div className="mb-8">
-              {editing ? (
-                <>
-                  <div className="space-y-4">
-                    <input
-                      type="text"
-                      value={updatedName}
-                      onChange={(e) => setUpdatedName(e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Full Name"
-                    />
-                    <select
-                      value={updatedTravelClass}
-                      onChange={(e) => setUpdatedTravelClass(e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="Economy">Economy</option>
-                      <option value="Business">Business</option>
-                    </select>
-                    <button
-                      onClick={handleUpdate}
-                      className="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition duration-300 flex items-center justify-center"
-                    >
-                      <FaSave className="mr-2" /> Save Changes
-                    </button>
-                  </div>
-                </>
+              {/* Car Rides Card */}
+              <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 flex items-center">
+                <div className="bg-green-100 p-4 rounded-full mr-4">
+                  <FaCar className="text-green-500 text-2xl" />
+                </div>
+                <div>
+                  <p className="text-gray-600">Car Rides</p>
+                  <p className="text-2xl font-bold text-gray-800">{dashboardData.taxis}</p>
+                </div>
+              </div>
+
+              {/* Hotels Booked Card */}
+              <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 flex items-center">
+                <div className="bg-purple-100 p-4 rounded-full mr-4">
+                  <FaHotel className="text-purple-500 text-2xl" />
+                </div>
+                <div>
+                  <p className="text-gray-600">Hotels Booked</p>
+                  <p className="text-2xl font-bold text-gray-800">{dashboardData.hotels}</p>
+                </div>
+              </div>
+            </div>
+          );
+        }}
+      </DashboardData>
+
+      {/* Rest of the Profile Component */}
+      <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
+        <div className="p-8">
+          <h2 className="text-3xl font-bold text-gray-800 text-center mb-6">Your Profile</h2>
+
+          {/* Profile Picture Section */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-blue-500">
+              {profilePictureUrl ? (
+                <img
+                  src={profilePictureUrl}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
               ) : (
-                <>
-                  <div className="space-y-4">
-                    <p className="text-lg text-gray-700"><strong>Name:</strong> {userData?.name}</p>
-                    <p className="text-lg text-gray-700"><strong>Email:</strong> {userData?.email}</p>
-                    <p className="text-lg text-gray-700"><strong>Travel Class:</strong> {userData?.travelClass}</p>
-                    <button
-                      onClick={() => setEditing(true)}
-                      className="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition duration-300 flex items-center justify-center"
-                    >
-                      <FaEdit className="mr-2" /> Edit Profile
-                    </button>
-                  </div>
-                </>
+                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                  <span className="text-gray-500 text-lg">No Image</span>
+                </div>
               )}
             </div>
-
-            {/* Change Password Section */}
-            <div className="mb-8">
-              <h3 className="text-2xl font-bold text-gray-800 mb-4">Change Password</h3>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="New Password"
-              />
-              <button
-                onClick={handleChangePassword}
-                className="w-full bg-green-600 text-white p-3 rounded-lg mt-4 hover:bg-green-700 transition duration-300 flex items-center justify-center"
-              >
-                <FaLock className="mr-2" /> Update Password
-              </button>
-            </div>
-
-            {/* Logout Button */}
-            <button
-              onClick={handleLogout}
-              className="w-full bg-red-600 text-white p-3 rounded-lg mt-8 hover:bg-red-700 transition duration-300 flex items-center justify-center"
-            >
-              <FaSignOutAlt className="mr-2" /> Logout
-            </button>
-            <Link
-            to='/feedback'
-            className="w-full bg-green-600 text-white p-3 rounded-lg mt-4 hover:bg-green-700 transition duration-300 flex items-center justify-center"
-            
-            >
-              Submit a Feedback
-            </Link>
-            <Link
-              to="/admin"
-              className="w-full bg-red-600 text-white p-3 rounded-lg mt-8 hover:bg-red-700 transition duration-300 flex items-center justify-center"
-            >
-              <FaSignOutAlt className="mr-2" /> Admin Dashboard
-            </Link>
-
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleProfilePictureChange}
+              className="mt-4"
+              disabled={uploading}
+            />
+            {uploading && <p className="text-gray-600 mt-2">Uploading...</p>}
           </div>
+
+          {/* Profile Section */}
+          <div className="mb-8">
+            {editing ? (
+              <>
+                <div className="space-y-4">
+                  <input
+                    type="text"
+                    value={updatedName}
+                    onChange={(e) => setUpdatedName(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Full Name"
+                  />
+                  <select
+                    value={updatedTravelClass}
+                    onChange={(e) => setUpdatedTravelClass(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="Economy">Economy</option>
+                    <option value="Business">Business</option>
+                  </select>
+                  <button
+                    onClick={handleUpdate}
+                    className="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition duration-300 flex items-center justify-center"
+                  >
+                    <FaSave className="mr-2" /> Save Changes
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-4">
+                  <p className="text-lg text-gray-700"><strong>Name:</strong> {userData?.name}</p>
+                  <p className="text-lg text-gray-700"><strong>Email:</strong> {userData?.email}</p>
+                  <p className="text-lg text-gray-700"><strong>Travel Class:</strong> {userData?.travelClass}</p>
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition duration-300 flex items-center justify-center"
+                  >
+                    <FaEdit className="mr-2" /> Edit Profile
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Change Password Section */}
+          <div className="mb-8">
+            <h3 className="text-2xl font-bold text-gray-800 mb-4">Change Password</h3>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="New Password"
+            />
+            <button
+              onClick={handleChangePassword}
+              className="w-full bg-green-600 text-white p-3 rounded-lg mt-4 hover:bg-green-700 transition duration-300 flex items-center justify-center"
+            >
+              <FaLock className="mr-2" /> Update Password
+            </button>
+          </div>
+
+          {/* Feedback Button */}
+          <Link
+            to="/feedback"
+            className="w-full bg-purple-600 text-white p-3 rounded-lg mt-4 hover:bg-purple-700 transition duration-300 flex items-center justify-center"
+          >
+            Submit Feedback
+          </Link>
         </div>
       </div>
     </div>

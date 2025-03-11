@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Spinner from '../Components/Spinner'; // Import the Spinner component
 
 export default function FlightDetails() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { token } = location.state || {};
   const [flightDetails, setFlightDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,7 +22,7 @@ export default function FlightDetails() {
       const options = {
         method: "GET",
         headers: {
-          "x-rapidapi-key": "aa933760d8msh85d65c4408d29f9p1cebc5jsn51f83597dca9",
+          "x-rapidapi-key": "c78b8b63cemshd029e4bc8339cc2p13203djsncc173c1c68c4",
           "x-rapidapi-host": "booking-com15.p.rapidapi.com",
         },
       };
@@ -46,6 +47,16 @@ export default function FlightDetails() {
 
     fetchFlightDetails();
   }, [token]);
+
+  const handlePaymentClick = () => {
+    navigate('/payment', { 
+      state: { 
+        amount: flightDetails.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units,
+        flightNumber: flightDetails.segments?.[0]?.legs?.[0]?.flightNumber,
+        token: token // Add the token to the state
+      } 
+    });
+  };
 
   if (loading) {
     return (
@@ -221,6 +232,14 @@ export default function FlightDetails() {
               ) : (
                 <p>No travel insurance benefits available.</p>
               )}
+            </div>
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={handlePaymentClick}
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Proceed to Payment
+              </button>
             </div>
           </div>
         ) : (

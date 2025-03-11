@@ -1,26 +1,28 @@
 import React, { useState, useEffect } from "react";
 import { FaPlane, FaBars, FaTimes } from "react-icons/fa";
 import { Link } from "react-router-dom";
-import logo from '../assets/logo.png'
+import logo from '../assets/logo.png';
+import { getAuth, signOut } from "firebase/auth"; // Import Firebase auth and signOut
 
 export default function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("userId"));
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setIsLoggedIn(!!localStorage.getItem("userId"));
-    };
+  // Firebase auth instance
+  const auth = getAuth();
 
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem("userId");
-    setIsLoggedIn(false);
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await signOut(auth); // Firebase logout
+      localStorage.removeItem("userId"); // Remove userId from local storage
+      setIsLoggedIn(false); // Update state immediately
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
   };
 
+  // Toggle mobile menu
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
   };

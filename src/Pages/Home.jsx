@@ -20,7 +20,7 @@ export default function Home() {
     const [dynamicHeading, setDynamicHeading] = useState("Flight"); // Dynamic heading state
     const navigate = useNavigate();
 
-    const RAPIDAPI_KEY = "aa933760d8msh85d65c4408d29f9p1cebc5jsn51f83597dca9";
+    const RAPIDAPI_KEY = "c78b8b63cemshd029e4bc8339cc2p13203djsncc173c1c68c4";
     const API_HOST = "booking-com15.p.rapidapi.com";
 
     // Animation on page load
