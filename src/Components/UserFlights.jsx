@@ -97,7 +97,6 @@ export default function UserFlights() {
                   <h2 className="text-xl font-semibold mb-2">
                     {flight.flightDetails.departure} → {flight.flightDetails.arrival}
                   </h2>
-                  <p className="text-gray-600">Flight: {flight.flightNumber}</p>
                 </div>
                 {getStatusTag(flight.status)}
               </div>
@@ -112,13 +111,27 @@ export default function UserFlights() {
                   {new Date(flight.flightDetails.arrivalTime).toLocaleString()}
                 </p>
                 <p className="text-gray-600">
-                  <span className="font-medium">Amount:</span> ₹{flight.amount}
+                  <span className="font-medium">Amount:</span> RS. {flight.amount}
                 </p>
                 <p className="text-gray-600">
                   <span className="font-medium">Transaction ID:</span>{' '}
                   {flight.transactionId}
                 </p>
               </div>
+
+              {/* View/Download Invoice Button */}
+              {flight.invoiceUrl && (
+                <div className="mt-4">
+                  <a
+                    href={flight.invoiceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+                  >
+                    View/Download Invoice
+                  </a>
+                </div>
+              )}
             </div>
           ))}
         </div>

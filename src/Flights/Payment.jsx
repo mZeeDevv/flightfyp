@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { PDFDownloadLink } from '@react-pdf/renderer';
-import { FlightInvoicePDF } from '../Components/FlightInvoice';
-import { db } from '../firebase'; // Make sure this path is correct
-import { collection, addDoc } from 'firebase/firestore';
+import { pdf } from '@react-pdf/renderer';
+import FlightInvoicePDF from '../Components/FlightInvoice';
+import { db } from '../firebase';
+import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, getStorage } from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
 
 export default function Payment() {
@@ -19,6 +20,8 @@ export default function Payment() {
   const [flightDetails, setFlightDetails] = useState(null);
   const [transactionId, setTransactionId] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const storage = getStorage();
 
   useEffect(() => {
     const auth = getAuth();
@@ -26,10 +29,21 @@ export default function Payment() {
       setIsAuthenticated(false);
     } else {
       setIsAuthenticated(true);
+      fetchUserData(auth.currentUser.uid);
     }
   }, []);
 
-  // Show login prompt if not authenticated
+  const fetchUserData = async (userId) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (userDoc.exists()) {
+        setUserData(userDoc.data());
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
@@ -83,7 +97,6 @@ export default function Payment() {
         throw new Error("No user logged in");
       }
 
-      // Validate and clean data before saving
       const flightBooking = {
         userId: user.uid,
         token: token || '',
@@ -98,10 +111,10 @@ export default function Payment() {
           departureTime: flightData.segments?.[0]?.departureTime || 'N/A',
           arrivalTime: flightData.segments?.[0]?.arrivalTime || 'N/A'
         },
-        status: 'confirmed'
+        status: 'confirmed',
+        invoiceUrl: flightData.invoiceUrl || '',
       };
 
-      // Validate that required fields are present
       if (!flightBooking.token || !flightBooking.transactionId) {
         throw new Error("Missing required booking information");
       }
@@ -126,132 +139,133 @@ export default function Payment() {
     }
 
     try {
-      // Simulate payment processing
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Fetch flight details for the invoice
       const details = await fetchFlightDetails();
+      if (!details) {
+        throw new Error("Failed to fetch flight details");
+      }
+
       const newTransactionId = Math.random().toString(36).substr(2, 9);
-      
-      // Save to Firebase
+      const pdfBlob = await generatePDFBlob(details, newTransactionId);
+      const storageRef = ref(storage, `invoices/${newTransactionId}.pdf`);
+      await uploadBytes(storageRef, pdfBlob);
+      const pdfUrl = await getDownloadURL(storageRef);
+
       await saveFlightToFirebase({
         ...details,
-        transactionId: newTransactionId
+        transactionId: newTransactionId,
+        invoiceUrl: pdfUrl,
       });
 
       setFlightDetails(details);
       setTransactionId(newTransactionId);
       setPaymentSuccess(true);
+      navigate('/my-flights');
     } catch (error) {
       console.error("Error processing payment: ", error);
-      // Handle error - you might want to show an error message to the user
     } finally {
       setProcessing(false);
     }
   };
 
-  if (paymentSuccess && flightDetails) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md text-center">
-          <h1 className="text-2xl font-bold text-green-600 mb-4">Payment Successful!</h1>
-          <p className="mb-4">Transaction ID: {transactionId}</p>
-          <PDFDownloadLink
-            document={
-              <FlightInvoicePDF
-                flightDetails={flightDetails}
-                transactionId={transactionId}
-                paymentMethod={paymentMethod}
-              />
-            }
-            fileName={`flight-invoice-${transactionId}.pdf`}
-            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 inline-block"
-          >
-            {({ blob, url, loading, error }) =>
-              loading ? 'Generating PDF...' : 'Download Invoice'
-            }
-          </PDFDownloadLink>
-          <button
-            onClick={() => navigate('/')}
-            className="mt-4 bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700 block w-full"
-          >
-            Back to Home
-          </button>
-        </div>
-      </div>
+  const generatePDFBlob = async (flightDetails, transactionId) => {
+    if (!flightDetails || !userData) {
+      throw new Error("Flight details or user data is missing");
+    }
+
+    const pdfElement = (
+      <FlightInvoicePDF
+        flightDetails={flightDetails}
+        transactionId={transactionId}
+        paymentMethod={paymentMethod}
+        userData={userData}
+        amount={amount}
+      />
     );
+
+    const blob = await pdf(pdfElement).toBlob();
+    return blob;
+  };
+
+  if (paymentSuccess) {
+    return null;
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6">Payment Details</h1>
-        <div className="mb-4">
-          <p className="text-lg font-semibold">Amount: ₹{amount}</p>
-          <p className="text-gray-600">Flight: {flightNumber}</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
+          <h1 className="text-2xl font-bold text-white">Payment Details</h1>
+          <p className="text-sm text-blue-100">Complete your booking by entering your payment details.</p>
         </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block mb-2">Payment Method</label>
-            <select
-              className="w-full p-2 border rounded"
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-            >
-              <option value="credit">Credit Card</option>
-              <option value="debit">Debit Card</option>
-            </select>
+        <div className="p-6">
+          <div className="mb-6">
+            <p className="text-lg font-semibold text-gray-800">Amount: RS. {amount}</p>
+            <p className="text-sm text-gray-500">Flight: {flightNumber}</p>
           </div>
 
-          <div>
-            <label className="block mb-2">Card Number</label>
-            <input
-              type="text"
-              maxLength="16"
-              className="w-full p-2 border rounded"
-              placeholder="1234 5678 9012 3456"
-              value={cardNumber}
-              onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, ''))}
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block mb-2">Expiry Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+              <select
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+              >
+                <option value="credit">Credit Card</option>
+                <option value="debit">Debit Card</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Card Number</label>
               <input
                 type="text"
-                className="w-full p-2 border rounded"
-                placeholder="MM/YY"
-                maxLength="5"
-                value={expiryDate}
-                onChange={(e) => setExpiryDate(e.target.value)}
+                maxLength="16"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                placeholder="1234 5678 9012 3456"
+                value={cardNumber}
+                onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, ''))}
                 required
               />
             </div>
-            <div>
-              <label className="block mb-2">CVV</label>
-              <input
-                type="password"
-                maxLength="3"
-                className="w-full p-2 border rounded"
-                placeholder="123"
-                value={cvv}
-                onChange={(e) => setCvv(e.target.value.replace(/\D/g, ''))}
-                required
-              />
-            </div>
-          </div>
 
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition-colors"
-            disabled={processing}
-          >
-            {processing ? 'Processing...' : 'Pay Now'}
-          </button>
-        </form>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Expiry Date</label>
+                <input
+                  type="text"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  placeholder="MM/YY"
+                  maxLength="5"
+                  value={expiryDate}
+                  onChange={(e) => setExpiryDate(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">CVV</label>
+                <input
+                  type="password"
+                  maxLength="3"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  placeholder="123"
+                  value={cvv}
+                  onChange={(e) => setCvv(e.target.value.replace(/\D/g, ''))}
+                  required
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all"
+              disabled={processing}
+            >
+              {processing ? 'Processing...' : 'Pay Now'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

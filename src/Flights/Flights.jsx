@@ -60,7 +60,69 @@ export default function Flights() {
     fetchFlights();
   }, [fromId, toId, departureDate, returnDate, cabinClass]);
 
-  // Show Spinner while loading or uploading
+  // Function to calculate flight duration
+  const calculateDuration = (departureTime, arrivalTime) => {
+    const depTime = new Date(departureTime).getTime();
+    const arrTime = new Date(arrivalTime).getTime();
+    return (arrTime - depTime) / (1000 * 60); // Duration in minutes
+  };
+
+  // Function to assign tags to flights
+  const assignTags = (flights) => {
+    if (flights.length === 0) return flights;
+  
+    // Helper function to normalize values between 0 and 1
+    const normalize = (value, min, max) => (value - min) / (max - min);
+  
+    // Extract prices, durations, and number of legs
+    const prices = flights.map(
+      (flight) => flight.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || Infinity
+    );
+    const durations = flights.map((flight) =>
+      calculateDuration(flight.segments?.[0]?.departureTime, flight.segments?.[0]?.arrivalTime)
+    );
+    const legs = flights.map((flight) => flight.segments?.[0]?.legs?.length || 1);
+  
+    // Find min and max for normalization
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const minDuration = Math.min(...durations);
+    const maxDuration = Math.max(...durations);
+  
+    // Assign tags
+    return flights.map((flight, index) => {
+      const tags = [];
+      const price = prices[index];
+      const duration = durations[index];
+      const numLegs = legs[index];
+  
+      // Cheapest
+      if (price === minPrice) {
+        tags.push("Cheapest");
+      }
+  
+      // Fastest
+      if (duration === minDuration) {
+        tags.push("Fastest");
+      }
+  
+      // Best (based on a weighted score)
+      const normalizedPrice = normalize(price, minPrice, maxPrice);
+      const normalizedDuration = normalize(duration, minDuration, maxDuration);
+      const score = 0.6 * normalizedPrice + 0.4 * normalizedDuration;
+  
+      // Assign "Best" tag to the flight with the lowest score
+      if (score === Math.min(...flights.map((f, i) => 0.6 * normalize(prices[i], minPrice, maxPrice) + 0.4 * normalize(durations[i], minDuration, maxDuration)))) {
+        tags.push("Best");
+      }
+      if (numLegs > 1) {
+        tags.push("Multi-Stop");
+      }
+  
+      return { ...flight, tags };
+    });
+  };
+  const taggedFlightOffers = assignTags(flightoffers);
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -122,11 +184,11 @@ export default function Flights() {
       )}
 
       {/* Flight Offers Section */}
-      {flightoffers.length > 0 && (
+      {taggedFlightOffers.length > 0 && (
         <div className="w-full p-6">
           <h2 className="text-2xl font-semibold mb-4">Flight Offers</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6">
-            {flightoffers.map((deal, index) => {
+            {taggedFlightOffers.map((deal, index) => {
               const departureAirport = deal.segments?.[0]?.departureAirport;
               const arrivalAirport = deal.segments?.[0]?.arrivalAirport;
               const departureTime = deal.segments?.[0]?.departureTime || "N/A";
@@ -136,6 +198,26 @@ export default function Flights() {
 
               return (
                 <div key={index} className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow">
+                  {/* Flight Tags */}
+                  {deal.tags?.length > 0 && (
+                    <div className="flex space-x-2 mb-4">
+                      {deal.tags.map((tag, idx) => (
+                        <span
+                          key={idx}
+                          className={`px-2 py-1 text-sm rounded-full ${
+                            tag === "Cheapest"
+                              ? "bg-green-100 text-green-700"
+                              : tag === "Fastest"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-yellow-100 text-yellow-700"
+                          }`}
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Flight Route */}
                   <div className="border-b pb-3 mb-3">
                     <div className="grid grid-cols-3">
