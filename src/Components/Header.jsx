@@ -48,8 +48,8 @@ export default function Header() {
         {/* Navigation - desktop */}
         <nav className="hidden md:flex items-center space-x-8">
           <Link to="/" className="hover:text-blue-300 transition-colors duration-200 font-medium">Home</Link>
-          <Link to="/airports" className="hover:text-blue-300 transition-colors duration-200 font-medium">Airports</Link>
-          <Link to="/carshire" className="hover:text-blue-300 transition-colors duration-200 font-medium">Hire a Car</Link>
+          <Link to="/hotels" className="hover:text-blue-300 transition-colors duration-200 font-medium">Hotels</Link>
+          <Link to="/taxi" className="hover:text-blue-300 transition-colors duration-200 font-medium">Hire a Taxi</Link>
           
           {/* Login/Profile Buttons */}
           {isLoggedIn ? (
@@ -75,8 +75,8 @@ export default function Header() {
         {mobileMenuOpen && (
           <div className="absolute top-16 left-0 right-0 bg-gradient-to-r from-gray-900 to-blue-900 p-4 md:hidden flex flex-col space-y-4 shadow-lg">
             <Link to="/" className="hover:text-blue-300 transition-colors duration-200 font-medium px-2 py-1" onClick={toggleMobileMenu}>Home</Link>
-            <Link to="/airports" className="hover:text-blue-300 transition-colors duration-200 font-medium px-2 py-1" onClick={toggleMobileMenu}>Airports</Link>
-            <Link to="/carshire" className="hover:text-blue-300 transition-colors duration-200 font-medium px-2 py-1" onClick={toggleMobileMenu}>Hire a Car</Link>
+            <Link to="/hotels" className="hover:text-blue-300 transition-colors duration-200 font-medium px-2 py-1" onClick={toggleMobileMenu}>Hotels</Link>
+            <Link to="/taxi" className="hover:text-blue-300 transition-colors duration-200 font-medium px-2 py-1" onClick={toggleMobileMenu}>Hire a Taxi</Link>
             
             {isLoggedIn ? (
               <div className="flex flex-col space-y-2">

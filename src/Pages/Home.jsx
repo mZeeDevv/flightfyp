@@ -18,6 +18,8 @@ export default function Home() {
     const [error, setError] = useState("");
     const [showContent, setShowContent] = useState(false);
     const [dynamicHeading, setDynamicHeading] = useState("Flight"); // Dynamic heading state
+    const [fromSuggestions, setFromSuggestions] = useState([]); // Suggestions for "From" field
+    const [toSuggestions, setToSuggestions] = useState([]); // Suggestions for "To" field
     const navigate = useNavigate();
 
     const RAPIDAPI_KEY = "c78b8b63cemshd029e4bc8339cc2p13203djsncc173c1c68c4";
@@ -45,6 +47,101 @@ export default function Home() {
         return () => clearInterval(interval); // Cleanup interval on unmount
     }, []);
 
+    // Debounce function to limit API calls
+    const debounce = (func, delay) => {
+        let timeoutId;
+        return (...args) => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => func(...args), delay);
+        };
+    };
+
+    // Fetch airport/city suggestions
+    const fetchSuggestions = async (query, setSuggestions) => {
+        if (!query) {
+            setSuggestions([]);
+            return;
+        }
+
+        const url = `https://${API_HOST}/api/v1/flights/searchDestination?query=${query}`;
+        const options = {
+            method: "GET",
+            headers: {
+                "x-rapidapi-key": RAPIDAPI_KEY,
+                "x-rapidapi-host": API_HOST,
+            },
+        };
+
+        try {
+            const response = await fetch(url, options);
+            const result = await response.json();
+            if (result?.data?.length > 0) {
+                setSuggestions(result.data);
+            } else {
+                setSuggestions([]);
+            }
+        } catch (error) {
+            console.error("Error fetching suggestions:", error);
+            setSuggestions([]);
+        }
+    };
+
+    // Debounced fetch for "From" field
+    const debouncedFetchFromSuggestions = debounce((query) => {
+        fetchSuggestions(query, setFromSuggestions);
+    }, 300);
+
+    // Debounced fetch for "To" field
+    const debouncedFetchToSuggestions = debounce((query) => {
+        fetchSuggestions(query, setToSuggestions);
+    }, 300);
+
+    // Handle "From" input change
+    const handleFromChange = (e) => {
+        const query = e.target.value;
+        setFrom(query);
+        debouncedFetchFromSuggestions(query);
+    };
+
+    // Handle "To" input change
+    const handleToChange = (e) => {
+        const query = e.target.value;
+        setTo(query);
+        debouncedFetchToSuggestions(query);
+    };
+
+    // Handle selection of a suggestion
+    const handleSuggestionClick = (suggestion, setField, setSuggestions) => {
+        setField(suggestion.name); // Set the input field value
+        setSuggestions([]); // Clear suggestions
+    };
+
+    // Handle search
+    const handleSearch = async () => {
+        setLoading(true); // Start loading effect
+        setError("");
+
+        const fromId = await fetchAirportId(from);
+        const toId = await fetchAirportId(to);
+
+        if (fromId && toId) {
+            navigate("/flights", {
+                state: {
+                    fromId,
+                    toId,
+                    departureDate,
+                    returnDate: tripType === "RETURN" ? returnDate : undefined, // Exclude return date if One-way
+                    cabinClass,
+                },
+            });
+        } else {
+            setError("Please enter valid departure and arrival cities.");
+        }
+
+        setLoading(false); // Stop loading effect
+    };
+
+    // Fetch airport ID for a city
     const fetchAirportId = async (city) => {
         if (!city) return null;
 
@@ -71,30 +168,6 @@ export default function Home() {
             setError(`Could not find an airport for "${city}"`);
             return null;
         }
-    };
-
-    const handleSearch = async () => {
-        setLoading(true); // Start loading effect
-        setError("");
-
-        const fromId = await fetchAirportId(from);
-        const toId = await fetchAirportId(to);
-
-        if (fromId && toId) {
-            navigate("/flights", {
-                state: {
-                    fromId,
-                    toId,
-                    departureDate,
-                    returnDate: tripType === "RETURN" ? returnDate : undefined, // Exclude return date if One-way
-                    cabinClass,
-                },
-            });
-        } else {
-            setError("Please enter valid departure and arrival cities.");
-        }
-
-        setLoading(false); // Stop loading effect
     };
 
     // New function to handle input swapping
@@ -171,10 +244,23 @@ export default function Home() {
                                     <input
                                         type="text"
                                         value={from}
-                                        onChange={(e) => setFrom(e.target.value)}
+                                        onChange={handleFromChange}
                                         placeholder="Departure city"
                                         className="w-full px-4 py-3 border border-gray-300 rounded-l-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     />
+                                    {fromSuggestions.length > 0 && (
+                                        <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                            {fromSuggestions.map((suggestion) => (
+                                                <li
+                                                    key={suggestion.id}
+                                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                                    onClick={() => handleSuggestionClick(suggestion, setFrom, setFromSuggestions)}
+                                                >
+                                                    {suggestion.name}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
                                 </div>
                                 <button 
                                     onClick={handleSwapLocations}
@@ -190,10 +276,23 @@ export default function Home() {
                                     <input
                                         type="text"
                                         value={to}
-                                        onChange={(e) => setTo(e.target.value)}
+                                        onChange={handleToChange}
                                         placeholder="Arrival city"
                                         className="w-full px-4 py-3 border border-gray-300 rounded-r-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     />
+                                    {toSuggestions.length > 0 && (
+                                        <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                            {toSuggestions.map((suggestion) => (
+                                                <li
+                                                    key={suggestion.id}
+                                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                                    onClick={() => handleSuggestionClick(suggestion, setTo, setToSuggestions)}
+                                                >
+                                                    {suggestion.name}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
                                 </div>
                             </div>
 

@@ -21,13 +21,15 @@ import FlightDetails from "./Flights/FlightDetails";
 import Airports from "./Pages/Airports";
 // Cars
 import Cars from "./Pages/Cars";
+import Taxi from './Pages/Taxi';
 // Admin
 import Admin from "./AdminDashboard/Admin";
 // Feedback
 import Feedback from "./Feedback/Feedback";
 // Payment
 import Payment from "./Flights/Payment";
-
+// Hotel
+import HotelSearch from "./Pages/Hotels";
 // Layout Component for Sidebar
 function SidebarLayout({ children }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -75,12 +77,13 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/airports" element={<Airports />} />
-            <Route path="/carshire" element={<Cars />} />
             <Route path="/flights" element={<Flights />} />
             <Route path="/confirm" element={<Confirm />} />
             <Route path="/flight-details" element={<FlightDetails />} />
             <Route path="/payment" element={<Payment />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/taxi" element={<Taxi />} />
+            <Route path="/hotels" element={<HotelSearch />} />
             <Route
               path="/profile/*"
               element={
