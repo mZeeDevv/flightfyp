@@ -50,7 +50,7 @@ export default function Header() {
           <Link to="/" className="hover:text-blue-300 transition-colors duration-200 font-medium">Home</Link>
           <Link to="/hotels" className="hover:text-blue-300 transition-colors duration-200 font-medium">Hotels</Link>
           <Link to="/taxi" className="hover:text-blue-300 transition-colors duration-200 font-medium">Hire a Taxi</Link>
-          
+          <Link to="/budget-planner" className="hover:text-blue-300 transition-colors duration-200 font-medium">Plan a Trip</Link>
           {/* Login/Profile Buttons */}
           {isLoggedIn ? (
             <div className="flex items-center space-x-4 ml-4">

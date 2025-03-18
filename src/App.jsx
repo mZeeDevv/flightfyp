@@ -30,6 +30,7 @@ import Feedback from "./Feedback/Feedback";
 import Payment from "./Flights/Payment";
 // Hotel
 import HotelSearch from "./Pages/Hotels";
+import BudgetPlanner from './Planner/BudgetPlanner';
 // Layout Component for Sidebar
 function SidebarLayout({ children }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -84,6 +85,7 @@ function App() {
             <Route path="/admin" element={<Admin />} />
             <Route path="/taxi" element={<Taxi />} />
             <Route path="/hotels" element={<HotelSearch />} />
+            <Route path="/budget-planner" element={<BudgetPlanner />} />
             <Route
               path="/profile/*"
               element={

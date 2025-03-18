@@ -16,7 +16,7 @@ export default function HotelSearch() {
     const [error, setError] = useState("");
     const [destinationSuggestions, setDestinationSuggestions] = useState([]);
 
-    const RAPIDAPI_KEY = "c78b8b63cemshd029e4bc8339cc2p13203djsncc173c1c68c4";
+    const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
     const API_HOST = "booking-com15.p.rapidapi.com";
 
     // Fetch destination suggestions
@@ -109,6 +109,11 @@ export default function HotelSearch() {
         } finally {
             setLoading(false);
         }
+    };
+
+    // Generate Google Maps link
+    const getGoogleMapsLink = (latitude, longitude) => {
+        return `https://www.google.com/maps?q=${latitude},${longitude}`;
     };
 
     return (
@@ -234,10 +239,11 @@ export default function HotelSearch() {
                 <button
                     onClick={handleSearch}
                     disabled={loading || !destId || !arrivalDate || !departureDate}
-                    className={`w-full flex items-center justify-center px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 ${loading || !destId || !arrivalDate || !departureDate
+                    className={`w-full flex items-center justify-center px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 ${
+                        loading || !destId || !arrivalDate || !departureDate
                             ? "bg-gray-400 cursor-not-allowed"
                             : "bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl"
-                        }`}
+                    }`}
                 >
                     {loading ? (
                         <>
@@ -284,13 +290,18 @@ export default function HotelSearch() {
                                             </span>
                                         </div>
                                         <p className="text-gray-600 mb-2">
-                                            {hotel.property.checkinDate} - {hotel.property.checkoutDate}
+                                            {Math.floor(hotel.property.priceBreakdown.grossPrice.value)}{" "}
+                                            {hotel.property.priceBreakdown.grossPrice.currency}
                                         </p>
-                                        <p className="text-gray-600 mb-2">
-                                            {Math.floor(hotel.property.priceBreakdown.grossPrice.value * 2)}{" "}
-                                            PKR
-                                        </p>
-                                        <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-all">
+                                        <a
+                                            href={getGoogleMapsLink(hotel.property.latitude, hotel.property.longitude)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:underline"
+                                        >
+                                            View on Google Maps
+                                        </a>
+                                        <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-all mt-4">
                                             View Details
                                         </button>
                                     </div>

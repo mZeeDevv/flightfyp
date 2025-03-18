@@ -6,6 +6,7 @@ import About from "../Components/About";
 import Newsletter from "../Components/Mail";
 import "../App.css";
 import bg from "../assets/254381.webp";
+import ChatWidget from "../components/ChatWidget";
 
 export default function Home() {
     const [tripType, setTripType] = useState("RETURN"); // Default to return
@@ -17,12 +18,12 @@ export default function Home() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [showContent, setShowContent] = useState(false);
-    const [dynamicHeading, setDynamicHeading] = useState("Flight"); // Dynamic heading state
-    const [fromSuggestions, setFromSuggestions] = useState([]); // Suggestions for "From" field
-    const [toSuggestions, setToSuggestions] = useState([]); // Suggestions for "To" field
+    const [dynamicHeading, setDynamicHeading] = useState("Flight"); 
+    const [fromSuggestions, setFromSuggestions] = useState([]); 
+    const [toSuggestions, setToSuggestions] = useState([]);
     const navigate = useNavigate();
 
-    const RAPIDAPI_KEY = "c78b8b63cemshd029e4bc8339cc2p13203djsncc173c1c68c4";
+    const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
     const API_HOST = "booking-com15.p.rapidapi.com";
 
     // Animation on page load
@@ -413,6 +414,7 @@ export default function Home() {
             <About />
             <Cheap />
             <Newsletter />
+            <ChatWidget />
         </>
     );
 }

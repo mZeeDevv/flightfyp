@@ -1,268 +1,371 @@
 import React, { useState } from 'react';
-import { FaTaxi, FaExchangeAlt, FaSearch, FaSpinner } from 'react-icons/fa';
+import { FaSearch } from "react-icons/fa";
+import bg from "../assets/254381.webp";
 
-const Taxi = () => {
-    const [pickUpPlaceId, setPickUpPlaceId] = useState('');
-    const [dropOffPlaceId, setDropOffPlaceId] = useState('');
-    const [pickUpDate, setPickUpDate] = useState('');
-    const [pickUpTime, setPickUpTime] = useState('');
-    const [taxiData, setTaxiData] = useState(null);
+const BudgetPlanner = () => {
+    const [userType, setUserType] = useState('PROFESSIONAL');
+    const [from, setFrom] = useState('');
+    const [to, setTo] = useState('');
+    const [budget, setBudget] = useState({
+        total: '',
+        flight: '',
+        hotel: ''
+    });
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+    const [error, setError] = useState('');
+    const [fromSuggestions, setFromSuggestions] = useState([]);
+    const [toSuggestions, setToSuggestions] = useState([]);
+    const [flightResults, setFlightResults] = useState([]);
+    const [hotelResults, setHotelResults] = useState([]);
 
-    const [pickUpQuery, setPickUpQuery] = useState('');
-    const [dropOffQuery, setDropOffQuery] = useState('');
-    const [pickUpSuggestions, setPickUpSuggestions] = useState([]);
-    const [dropOffSuggestions, setDropOffSuggestions] = useState([]);
-    const [isFetchingLocations, setIsFetchingLocations] = useState(false);
+    const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
+    const API_HOST = "booking-com15.p.rapidapi.com";
 
-    // Fetch location suggestions from the API
-    const fetchLocationSuggestions = async (query, setSuggestions) => {
+    // Debounce function
+    const debounce = (func, delay) => {
+        let timeoutId;
+        return (...args) => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => func(...args), delay);
+        };
+    };
+
+    // Fetch suggestions for flights and hotels
+    const fetchSuggestions = async (query, setSuggestions, type) => {
         if (!query) {
             setSuggestions([]);
             return;
         }
 
-        setIsFetchingLocations(true);
-        const url = new URL('https://booking-com15.p.rapidapi.com/api/v1/taxi/searchLocation');
-        url.searchParams.append('query', query);
-
+        const url = `https://${API_HOST}/api/v1/${type}/searchDestination?query=${query}`;
         const options = {
-            method: 'GET',
+            method: "GET",
             headers: {
-                'x-rapidapi-key': 'c78b8b63cemshd029e4bc8339cc2p13203djsncc173c1c68c4',
-                'x-rapidapi-host': 'booking-com15.p.rapidapi.com'
-            }
+                "x-rapidapi-key": RAPIDAPI_KEY,
+                "x-rapidapi-host": API_HOST,
+            },
         };
 
         try {
             const response = await fetch(url, options);
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
+            const result = await response.json();
+            if (result?.data?.length > 0) {
+                setSuggestions(result.data);
             }
-            const data = await response.json();
-            setSuggestions(data.data);
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setIsFetchingLocations(false);
+        } catch (error) {
+            console.error("Error fetching suggestions:", error);
+            setSuggestions([]);
         }
     };
 
-    // Handle pick-up location search
-    const handlePickUpSearch = async (e) => {
-        const query = e.target.value;
-        setPickUpQuery(query);
-        await fetchLocationSuggestions(query, setPickUpSuggestions);
+    const debouncedFetchFromSuggestions = debounce((query) => {
+        fetchSuggestions(query, setFromSuggestions, 'flights');
+    }, 300);
+
+    const debouncedFetchToSuggestions = debounce((query) => {
+        fetchSuggestions(query, setToSuggestions, 'flights');
+    }, 300);
+
+    const handleFromChange = (e) => {
+        setFrom(e.target.value);
+        debouncedFetchFromSuggestions(e.target.value);
     };
 
-    // Handle drop-off location search
-    const handleDropOffSearch = async (e) => {
-        const query = e.target.value;
-        setDropOffQuery(query);
-        await fetchLocationSuggestions(query, setDropOffSuggestions);
+    const handleToChange = (e) => {
+        setTo(e.target.value);
+        debouncedFetchToSuggestions(e.target.value);
     };
 
-    // Handle taxi search
-    const handleSearch = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError(null);
+    const handleBudgetChange = (e) => {
+        const { name, value } = e.target;
+        setBudget(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
 
-        const url = new URL('https://booking-com15.p.rapidapi.com/api/v1/taxi/searchTaxi');
-        url.searchParams.append('pick_up_place_id', pickUpPlaceId);
-        url.searchParams.append('drop_off_place_id', dropOffPlaceId);
-        url.searchParams.append('pick_up_date', pickUpDate);
-        url.searchParams.append('pick_up_time', pickUpTime);
-        url.searchParams.append('currency_code', 'INR');
-
+    // Fetch flights
+    const fetchFlights = async (fromId, toId) => {
+        const url = `https://${API_HOST}/api/v1/flights/searchFlights?fromId=${fromId}&toId=${toId}`;
         const options = {
-            method: 'GET',
+            method: "GET",
             headers: {
-                'x-rapidapi-key': 'c78b8b63cemshd029e4bc8339cc2p13203djsncc173c1c68c4',
-                'x-rapidapi-host': 'booking-com15.p.rapidapi.com'
-            }
+                "x-rapidapi-key": RAPIDAPI_KEY,
+                "x-rapidapi-host": API_HOST,
+            },
         };
 
         try {
             const response = await fetch(url, options);
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
+            const result = await response.json();
+            if (result?.data?.length > 0) {
+                setFlightResults(result.data);
             }
-            const data = await response.json();
-            setTaxiData(data);
-        } catch (err) {
-            setError(err.message);
+        } catch (error) {
+            console.error("Error fetching flights:", error);
+            setFlightResults([]);
+        }
+    };
+
+    // Fetch hotels
+    const fetchHotels = async (destinationId) => {
+        const url = `https://${API_HOST}/api/v1/hotels/searchHotels?destinationId=${destinationId}`;
+        const options = {
+            method: "GET",
+            headers: {
+                "x-rapidapi-key": RAPIDAPI_KEY,
+                "x-rapidapi-host": API_HOST,
+            },
+        };
+
+        try {
+            const response = await fetch(url, options);
+            const result = await response.json();
+            if (result?.data?.length > 0) {
+                setHotelResults(result.data);
+            }
+        } catch (error) {
+            console.error("Error fetching hotels:", error);
+            setHotelResults([]);
+        }
+    };
+
+    const handleSearch = async () => {
+        setLoading(true);
+        setError('');
+
+        try {
+            const fromId = await fetchAirportId(from);
+            const toId = await fetchAirportId(to);
+
+            if (!fromId || !toId) {
+                setError('Please enter valid departure and arrival cities.');
+                return;
+            }
+
+            // Fetch flights and hotels
+            await fetchFlights(fromId, toId);
+            await fetchHotels(toId);
+
+        } catch (error) {
+            setError('An error occurred while planning your budget.');
         } finally {
             setLoading(false);
         }
     };
 
+    const fetchAirportId = async (city) => {
+        if (!city) return null;
+
+        const url = `https://${API_HOST}/api/v1/flights/searchDestination?query=${city}`;
+        const options = {
+            method: "GET",
+            headers: {
+                "x-rapidapi-key": RAPIDAPI_KEY,
+                "x-rapidapi-host": API_HOST,
+            },
+        };
+
+        try {
+            const response = await fetch(url, options);
+            const result = await response.json();
+            return result?.data?.[0]?.id || null;
+        } catch (error) {
+            console.error(`Error fetching airport for "${city}":`, error);
+            return null;
+        }
+    };
+
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-r from-blue-900 to-gray-900">
-            {/* Header Section */}
-            <div className="text-center text-white mb-8 animate-fadeIn">
-                <h1 className="text-5xl font-bold mb-4">
-                    Book Your Taxi Ride
-                </h1>
-                <h2 className="text-2xl">
-                    Find the <span className="text-yellow-300 font-bold animate-pulse">Best Deals</span> for Your Journey
-                </h2>
-            </div>
+        <div className="min-h-screen bg-no-repeat bg-cover bg-fixed"
+            style={{ backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${bg})` }}>
+            <div className="container mx-auto px-4 py-8">
+                <div className="bg-white bg-opacity-95 p-8 rounded-xl shadow-2xl">
+                    <h1 className="text-3xl font-bold mb-6">Budget Planner</h1>
 
-            {/* Form Section */}
-            <div className="bg-white bg-opacity-95 p-8 rounded-xl shadow-2xl w-full max-w-5xl mx-4 animate-slideUp transition-all duration-500">
-                <form onSubmit={handleSearch}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6">
-                        {/* Pick-up Location Field */}
-                        <div className="relative lg:col-span-5 md:col-span-2 flex flex-col">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Pick-up Location
+                    <div className="grid gap-6">
+                        {/* User Type Selection */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Travel Category
                             </label>
-                            <input
-                                type="text"
-                                value={pickUpQuery}
-                                onChange={handlePickUpSearch}
-                                placeholder="Enter pick-up location"
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                            {isFetchingLocations && (
-                                <div className="absolute top-12 right-2">
-                                    <FaSpinner className="animate-spin text-gray-500" />
-                                </div>
-                            )}
-                            {pickUpSuggestions.length > 0 && (
-                                <ul className="mt-2 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                                    {pickUpSuggestions.map((location) => (
-                                        <li
-                                            key={location.googlePlaceId}
-                                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                            onClick={() => {
-                                                setPickUpPlaceId(location.googlePlaceId);
-                                                setPickUpQuery(location.name);
-                                                setPickUpSuggestions([]);
-                                            }}
-                                        >
-                                            {location.name}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
+                            <select
+                                value={userType}
+                                onChange={(e) => setUserType(e.target.value)}
+                                className="w-full p-3 border rounded-lg"
+                            >
+                                <option value="PROFESSIONAL">Professional</option>
+                                <option value="VISITOR">Visitor</option>
+                                <option value="WORKER">Worker</option>
+                            </select>
                         </div>
 
-                        {/* Drop-off Location Field */}
-                        <div className="relative lg:col-span-5 md:col-span-2 flex flex-col">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Drop-off Location
-                            </label>
-                            <input
-                                type="text"
-                                value={dropOffQuery}
-                                onChange={handleDropOffSearch}
-                                placeholder="Enter drop-off location"
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                            {isFetchingLocations && (
-                                <div className="absolute top-12 right-2">
-                                    <FaSpinner className="animate-spin text-gray-500" />
-                                </div>
-                            )}
-                            {dropOffSuggestions.length > 0 && (
-                                <ul className="mt-2 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                                    {dropOffSuggestions.map((location) => (
-                                        <li
-                                            key={location.googlePlaceId}
-                                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                            onClick={() => {
-                                                setDropOffPlaceId(location.googlePlaceId);
-                                                setDropOffQuery(location.name);
-                                                setDropOffSuggestions([]);
-                                            }}
-                                        >
-                                            {location.name}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-
-                        {/* Date and Time Fields */}
-                        <div className="lg:col-span-4 grid grid-cols-2 gap-4">
+                        {/* Location Inputs */}
+                        <div className="grid md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Pick-up Date
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    From
                                 </label>
                                 <input
-                                    type="date"
-                                    value={pickUpDate}
-                                    min={new Date().toISOString().split('T')[0]}
-                                    onChange={(e) => setPickUpDate(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    type="text"
+                                    value={from}
+                                    onChange={handleFromChange}
+                                    className="w-full p-3 border rounded-lg"
+                                    placeholder="Departure city"
+                                />
+                                {fromSuggestions.length > 0 && (
+                                    <ul className="mt-1 border rounded-lg shadow-lg bg-white">
+                                        {fromSuggestions.map((suggestion) => (
+                                            <li
+                                                key={suggestion.id}
+                                                className="p-2 hover:bg-gray-100 cursor-pointer"
+                                                onClick={() => {
+                                                    setFrom(suggestion.name);
+                                                    setFromSuggestions([]);
+                                                }}
+                                            >
+                                                {suggestion.name}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    To
+                                </label>
+                                <input
+                                    type="text"
+                                    value={to}
+                                    onChange={handleToChange}
+                                    className="w-full p-3 border rounded-lg"
+                                    placeholder="Arrival city"
+                                />
+                                {toSuggestions.length > 0 && (
+                                    <ul className="mt-1 border rounded-lg shadow-lg bg-white">
+                                        {toSuggestions.map((suggestion) => (
+                                            <li
+                                                key={suggestion.id}
+                                                className="p-2 hover:bg-gray-100 cursor-pointer"
+                                                onClick={() => {
+                                                    setTo(suggestion.name);
+                                                    setToSuggestions([]);
+                                                }}
+                                            >
+                                                {suggestion.name}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Budget Inputs */}
+                        <div className="grid md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Total Budget
+                                </label>
+                                <input
+                                    type="number"
+                                    name="total"
+                                    value={budget.total}
+                                    onChange={handleBudgetChange}
+                                    className="w-full p-3 border rounded-lg"
+                                    placeholder="Enter total budget"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Pick-up Time
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Flight Budget
                                 </label>
                                 <input
-                                    type="time"
-                                    value={pickUpTime}
-                                    onChange={(e) => setPickUpTime(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    type="number"
+                                    name="flight"
+                                    value={budget.flight}
+                                    onChange={handleBudgetChange}
+                                    className="w-full p-3 border rounded-lg"
+                                    placeholder="Enter flight budget"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Hotel Budget
+                                </label>
+                                <input
+                                    type="number"
+                                    name="hotel"
+                                    value={budget.hotel}
+                                    onChange={handleBudgetChange}
+                                    className="w-full p-3 border rounded-lg"
+                                    placeholder="Enter hotel budget"
                                 />
                             </div>
                         </div>
 
                         {/* Search Button */}
-                        <div className="lg:col-span-3 flex items-end">
-                            <button
-                                type="submit"
-                                disabled={loading || !pickUpPlaceId || !dropOffPlaceId}
-                                className={`w-full flex items-center justify-center px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 ${
-                                    loading || !pickUpPlaceId || !dropOffPlaceId
-                                        ? "bg-gray-400 cursor-not-allowed"
-                                        : "bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl"
-                                }`}
-                            >
-                                {loading ? (
-                                    <>
-                                        <FaSpinner className="animate-spin h-5 w-5 mr-3" />
-                                        Searching...
-                                    </>
-                                ) : (
-                                    <>
-                                        <FaSearch className="mr-2" /> Find Taxi
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </form>
+                        <button
+                            onClick={handleSearch}
+                            disabled={loading}
+                            className={`flex items-center justify-center p-3 rounded-lg text-white font-semibold ${
+                                loading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
+                            }`}
+                        >
+                            {loading ? (
+                                'Planning...'
+                            ) : (
+                                <>
+                                    <FaSearch className="mr-2" /> Plan Budget
+                                </>
+                            )}
+                        </button>
 
-                {/* Error Message */}
-                {error && (
-                    <div className="mt-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 rounded">
-                        <p className="flex items-center">
-                            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"></path>
-                            </svg>
-                            {error}
-                        </p>
-                    </div>
-                )}
+                        {/* Error Message */}
+                        {error && (
+                            <div className="p-3 bg-red-100 text-red-700 rounded-lg">
+                                {error}
+                            </div>
+                        )}
 
-                {/* Taxi Data Display */}
-                {taxiData && (
-                    <div className="mt-8">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-4">Taxi Options</h2>
-                        <pre className="bg-gray-100 p-4 rounded-lg overflow-x-auto">
-                            {JSON.stringify(taxiData, null, 2)}
-                        </pre>
+                        {/* Flight Results */}
+                        {flightResults.length > 0 && (
+                            <div className="mt-6">
+                                <h2 className="text-xl font-semibold mb-4">Flight Results</h2>
+                                <div className="space-y-4">
+                                    {flightResults.map((flight) => (
+                                        <div key={flight.id} className="p-4 border rounded-lg">
+                                            <p><strong>Airline:</strong> {flight.airline}</p>
+                                            <p><strong>Price:</strong> ${flight.price}</p>
+                                            <p><strong>Departure:</strong> {flight.departureTime}</p>
+                                            <p><strong>Arrival:</strong> {flight.arrivalTime}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Hotel Results */}
+                        {hotelResults.length > 0 && (
+                            <div className="mt-6">
+                                <h2 className="text-xl font-semibold mb-4">Hotel Results</h2>
+                                <div className="space-y-4">
+                                    {hotelResults.map((hotel) => (
+                                        <div key={hotel.id} className="p-4 border rounded-lg">
+                                            <p><strong>Name:</strong> {hotel.name}</p>
+                                            <p><strong>Price:</strong> ${hotel.price}</p>
+                                            <p><strong>Rating:</strong> {hotel.rating}</p>
+                                            <p><strong>Address:</strong> {hotel.address}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
-                )}
+                </div>
             </div>
         </div>
     );
 };
 
-export default Taxi;
+export default BudgetPlanner;

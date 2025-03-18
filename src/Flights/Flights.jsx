@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Spinner from '../Components/Spinner'; // Import the Spinner component
 
-const RAPIDAPI_KEY = "c78b8b63cemshd029e4bc8339cc2p13203djsncc173c1c68c4";
+const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
 const API_HOST = "booking-com15.p.rapidapi.com";
 
 export default function Flights() {
