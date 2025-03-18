@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../firebase"; 
 import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
-import AdminChat from "../components/AdminChat";
+import AdminChat from "../Components/AdminChat";
 
 export default function Admin() {
   const [feedbackData, setFeedbackData] = useState([]);
