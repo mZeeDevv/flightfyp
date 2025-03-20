@@ -25,6 +25,7 @@ export default function Sidebar({ currentPath }) {
     { path: '/my-cars', name: 'My Cars', icon: <FaCar /> },
     { path: '/my-hotels', name: 'My Hotels', icon: <FaHotel /> },
     { path: '/feedback', name: 'Feedback', icon: <FaComments /> },
+    { path: '/my-fav-trips', name: 'Favourite Trips', icon: <FaComments /> },
     { path: '/admin', name: 'Admin Dashboard', icon: <FaCog /> }, // Admin Dashboard link
   ];
 

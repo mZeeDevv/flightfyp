@@ -12,8 +12,6 @@ import Confirm from "./Components/Confirm";
 // Components
 import Header from "./Components/Header";
 import Footer from "./Components/Footer";
-import UserFlights from "./Components/UserFlights";
-import Sidebar from "./Components/Sidebar";
 // Flights
 import Flights from "./Flights/Flights";
 import FlightDetails from "./Flights/FlightDetails";
@@ -31,6 +29,12 @@ import Payment from "./Flights/Payment";
 // Hotel
 import HotelSearch from "./Pages/Hotels";
 import BudgetPlanner from './Planner/BudgetPlanner';
+
+// UserDasboard 
+import Sidebar from "./Components/Sidebar";
+import UserFlights from "./UsesDashboard/UserFlights";
+import FavoriteTrips from "./UsesDashboard/FavTrips";
+
 // Layout Component for Sidebar
 function SidebarLayout({ children }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -110,6 +114,14 @@ function App() {
                 </SidebarLayout>
               }
             />
+            <Route
+              path="/my-fav-trips"
+              element={
+                <SidebarLayout>
+                  <FavoriteTrips />
+                </SidebarLayout>
+              }
+               />
             <Route
               path="/my-hotels"
               element={

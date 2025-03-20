@@ -22,7 +22,7 @@ export default function FlightDetails() {
       const options = {
         method: "GET",
         headers: {
-          "x-rapidapi-key": "c78b8b63cemshd029e4bc8339cc2p13203djsncc173c1c68c4",
+          "x-rapidapi-key": import.meta.env.VITE_RAPIDAPI_KEY,
           "x-rapidapi-host": "booking-com15.p.rapidapi.com",
         },
       };

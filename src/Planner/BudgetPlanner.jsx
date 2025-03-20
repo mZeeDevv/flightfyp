@@ -3,7 +3,9 @@ import { FaExchangeAlt, FaSearch } from "react-icons/fa";
 import TripDetails from "./TripDetails"; // Import the TripDetails component
 import bg from "../assets/254381.webp";
 
+
 const BudgetPlanner = () => {
+   
     const [tripType, setTripType] = useState("RETURN");
     const [from, setFrom] = useState("");
     const [to, setTo] = useState("");
@@ -11,13 +13,19 @@ const BudgetPlanner = () => {
     const [returnDate, setReturnDate] = useState("");
     const [travelCategory, setTravelCategory] = useState("PROFESSIONAL");
     const [cabinClass, setCabinClass] = useState("ECONOMY");
-    const [budget, setBudget] = useState("");
+    const [budget, setBudget] = useState({
+        total: "",
+        flight: "",
+        hotel: ""
+    });
     const [daysOfStay, setDaysOfStay] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [fromSuggestions, setFromSuggestions] = useState([]);
     const [toSuggestions, setToSuggestions] = useState([]);
     const [searchResults, setSearchResults] = useState(null); // State to store search results
+    const [selectedFlight, setSelectedFlight] = useState(null);
+    const [selectedHotel, setSelectedHotel] = useState(null);
 
     const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
     const API_HOST = "booking-com15.p.rapidapi.com";
@@ -98,10 +106,55 @@ const BudgetPlanner = () => {
         setSuggestions([]); // Clear suggestions
     };
 
+    // Add new function to handle flight selection
+    const handleFlightSelection = (flightId, flightPrice) => {
+        setSelectedFlight(flightId);
+        setBudget(prev => ({
+            ...prev,
+            flight: flightPrice
+        }));
+    };
+
+    // Add new function to handle hotel selection
+    const handleHotelSelection = (hotelId, hotelPrice) => {
+        setSelectedHotel(hotelId);
+        setBudget(prev => ({
+            ...prev,
+            hotel: hotelPrice
+        }));
+    };
+
+    // Modify budget input to show total budget
+    const handleBudgetChange = (e) => {
+        setBudget(prev => ({
+            ...prev,
+            total: e.target.value
+        }));
+    };
+
     // Handle search
     const handleSearch = async () => {
         setLoading(true); // Start loading effect
         setError("");
+
+        // Reset selected flight and hotel
+        setSelectedFlight(null);
+        setSelectedHotel(null);
+        setBudget(prev => ({ ...prev, flight: "", hotel: "" }));
+
+        // Calculate returnDate if it's not provided
+        let calculatedReturnDate = returnDate;
+        if (!returnDate && daysOfStay && departureDate) {
+            const departure = new Date(departureDate);
+            departure.setDate(departure.getDate() + parseInt(daysOfStay, 10));
+            calculatedReturnDate = departure.toISOString().split("T")[0]; // Format as yyyy-mm-dd
+        }
+
+        if (!calculatedReturnDate && tripType === "RETURN") {
+            setError("Please provide a return date or days of stay.");
+            setLoading(false);
+            return;
+        }
 
         const fromId = await fetchAirportId(from);
         const toId = await fetchAirportId(to);
@@ -112,15 +165,14 @@ const BudgetPlanner = () => {
                 fromId,
                 toId,
                 departureDate,
-                returnDate,
+                returnDate: calculatedReturnDate, // Use calculated returnDate
                 cabinClass,
-                budget,
+                budget: budget.total,
+                selectedFlight,
+                selectedHotel,
                 daysOfStay,
                 travelCategory,
             };
-
-            // Log all data
-            console.log("Search Results:", searchResults);
 
             // Set search results to state
             setSearchResults(searchResults);
@@ -154,7 +206,6 @@ const BudgetPlanner = () => {
                 throw new Error(`No airport found for "${city}"`);
             }
         } catch (error) {
-            console.error(`Error fetching airport for "${city}":`, error);
             setError(`Could not find an airport for "${city}"`);
             return null;
         }
@@ -172,8 +223,8 @@ const BudgetPlanner = () => {
             from &&
             to &&
             departureDate &&
-            (tripType === "ONE_WAY" || returnDate) &&
-            budget &&
+            (tripType === "ONE_WAY" || returnDate || daysOfStay) && // Allow daysOfStay as an alternative
+            budget.total &&
             daysOfStay
         );
     };
@@ -351,15 +402,17 @@ const BudgetPlanner = () => {
                     <div className="lg:col-span-3 flex flex-col gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Budget (INR)
+                                Budget Details (PKR)
                             </label>
-                            <input
-                                type="number"
-                                value={budget}
-                                onChange={(e) => setBudget(e.target.value)}
-                                placeholder="Enter your budget"
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
+                            <div className="space-y-2">
+                                <input
+                                    type="number"
+                                    value={budget.total}
+                                    onChange={handleBudgetChange}
+                                    placeholder="Total Budget"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                            </div>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -435,7 +488,13 @@ const BudgetPlanner = () => {
                     </ul>
                 </div>
             </div>
-            {searchResults && <TripDetails searchResults={searchResults} />}
+            {searchResults && (
+                <TripDetails 
+                    searchResults={searchResults} 
+                    onFlightSelect={handleFlightSelection}
+                    onHotelSelect={handleHotelSelection}
+                />
+            )}
         </div>
     );
 };
