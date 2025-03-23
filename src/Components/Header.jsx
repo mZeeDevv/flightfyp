@@ -11,6 +11,24 @@ export default function Header() {
   // Firebase auth instance
   const auth = getAuth();
 
+  // Listen for changes to localStorage userId
+  useEffect(() => {
+    const checkLoginStatus = () => {
+      setIsLoggedIn(!!localStorage.getItem("userId"));
+    };
+
+    // Check initially
+    checkLoginStatus();
+
+    // Add event listener for storage changes
+    window.addEventListener('storage', checkLoginStatus);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('storage', checkLoginStatus);
+    };
+  }, []);
+
   // Handle logout
   const handleLogout = async () => {
     try {

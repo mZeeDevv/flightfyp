@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { FaEnvelope, FaPaperPlane, FaCheck, FaShieldAlt, FaPlane } from "react-icons/fa";
 import Mail from "../assets/Mail.png";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../firebase"; // Make sure you have Firebase config file
 
 export default function Newsletter() {
     const [email, setEmail] = useState("");
@@ -8,15 +10,22 @@ export default function Newsletter() {
     const [subscribed, setSubscribed] = useState(false);
     const [loading, setLoading] = useState(false);
     const [agreed, setAgreed] = useState(false);
+    const [error, setError] = useState(null);
 
-    const handleSubscribe = (e) => {
+    const handleSubscribe = async (e) => {
         e.preventDefault();
         setLoading(true);
+        setError(null);
         
-        // Simulate API call with timeout
-        setTimeout(() => {
+        try {
+            // Save to Firebase
+            await addDoc(collection(db, "subscriptions"), {
+                email: email,
+                homeAirport: homeAirport,
+                createdAt: serverTimestamp()
+            });
+            
             setSubscribed(true);
-            setLoading(false);
             
             // Reset form
             setEmail("");
@@ -26,7 +35,12 @@ export default function Newsletter() {
             setTimeout(() => {
                 setSubscribed(false);
             }, 5000);
-        }, 1500);
+        } catch (err) {
+            setError("Failed to subscribe. Please try again later.");
+            console.error("Error adding subscription: ", err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -92,10 +106,10 @@ export default function Newsletter() {
                                         </div>
                                         <div className="ml-3">
                                             <p className="text-green-800 font-medium">
-                                                You've successfully subscribed to our newsletter!
+                                                Subscription successful! Welcome to our travel community!
                                             </p>
                                             <p className="text-green-700 text-sm mt-1">
-                                                Check your email inbox for a confirmation message.
+                                                We'll keep you updated with the best flight deals and travel offers.
                                             </p>
                                         </div>
                                     </div>
@@ -188,6 +202,21 @@ export default function Newsletter() {
                                         )}
                                     </button>
                                 </form>
+                            )}
+
+                            {error && (
+                                <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-md">
+                                    <div className="flex items-center">
+                                        <div className="flex-shrink-0">
+                                            <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                            </svg>
+                                        </div>
+                                        <div className="ml-3">
+                                            <p className="text-red-800 font-medium">{error}</p>
+                                        </div>
+                                    </div>
+                                </div>
                             )}
 
                             {/* Security notice */}

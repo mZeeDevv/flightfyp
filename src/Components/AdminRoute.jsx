@@ -18,7 +18,7 @@ const AdminRoute = () => {
         }
         
         const db = getFirestore();
-        const adminDoc = await getDoc(doc(db, "admins", auth.currentUser.uid));
+        const adminDoc = await getDoc(doc(db, "admins", auth.currentUser.uid)); 
         setIsAdmin(adminDoc.exists());
       } catch (error) {
         console.error("Error checking admin status:", error);

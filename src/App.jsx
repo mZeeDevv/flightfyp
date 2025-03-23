@@ -33,14 +33,17 @@ import UserHotels from "./Pages/UserHotels";
 
 // UserDasboard 
 import Sidebar from "./Components/Sidebar";
+import AdminSidebar from "./Components/AdminSidebar";
 import UserFlights from "./UsesDashboard/UserFlights";
 import FavoriteTrips from "./UsesDashboard/FavTrips";
 import UserTrips from './UsesDashboard/UserTrips';
 
 // Import the AdminRoute component
 import AdminRoute from './Components/AdminRoute';
+import AdminFeedback from "./AdminDashboard/AdminFeedback";
+import SubscriptionsList from "./Components/Admin/SubscriptionsList";
 
-// Layout Component for Sidebar
+// Layout Component for User Sidebar
 function SidebarLayout({ children }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
@@ -61,6 +64,42 @@ function SidebarLayout({ children }) {
         `}
       >
         <Sidebar currentPath={location.pathname} />
+      </div>
+
+      <main className="flex-1 w-full">
+        {children}
+      </main>
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Layout Component for Admin Sidebar
+function AdminSidebarLayout({ children }) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const location = useLocation();
+
+  return (
+    <div className="flex min-h-screen">
+      <button
+        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        className="md:hidden fixed top-16 left-4 z-50 bg-gray-800 text-white p-2 rounded-md shadow-lg"
+      >
+        {isMobileMenuOpen ? "✕" : "☰"}
+      </button>
+      <div
+        className={`
+          fixed md:static w-64 h-full transition-transform duration-300 ease-in-out
+          ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+          top-16 bottom-16 z-30 bg-gray-800 shadow-lg
+        `}
+      >
+        <AdminSidebar currentPath={location.pathname} />
       </div>
 
       <main className="flex-1 w-full">
@@ -151,10 +190,30 @@ function App() {
               </SidebarLayout>
             }
           />
-            {/* Wrap admin routes with AdminRoute */}
+            {/* Wrap admin routes with AdminRoute and AdminSidebarLayout */}
             <Route element={<AdminRoute />}>
-              <Route path="/admin" element={<Admin />} />
-              {/* Any other admin routes */}
+              <Route path="/admin" element={
+                <AdminSidebarLayout>
+                  <Admin />
+                </AdminSidebarLayout>
+              } />
+              
+                <Route path="/admin/feedback" element={
+                <AdminSidebarLayout>
+                  <AdminFeedback />
+                </AdminSidebarLayout>
+              } />
+
+              <Route path="/admin/newletter" element={
+                <AdminSidebarLayout>
+                  <SubscriptionsList/>
+                </AdminSidebarLayout>
+              } />
+              <Route path="/admin/settings" element={
+                <AdminSidebarLayout>
+                  <div>Admin Settings Page</div>
+                </AdminSidebarLayout>
+              } />
             </Route>
           </Routes>
         </div>

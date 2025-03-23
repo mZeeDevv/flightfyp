@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { getAuth, deleteUser, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import { toast } from "react-toastify";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import "react-toastify/dist/ReactToastify.css";
-import { FaPlane, FaHotel, FaUser, FaLock, FaEdit, FaSave, FaSuitcase } from "react-icons/fa";
+import { FaPlane, FaHotel, FaUser, FaLock, FaEdit, FaSave, FaSuitcase, FaTrash } from "react-icons/fa";
 import Spinner from '../Components/Spinner'; // Import the Spinner component
 import DashboardData from '../UsesDashboard/Dashboard'; // Import the DashboardData component
 
@@ -19,7 +20,9 @@ export default function Profile() {
   const [profilePicture, setProfilePicture] = useState(null);
   const [profilePictureUrl, setProfilePictureUrl] = useState("");
   const [uploading, setUploading] = useState(false);
-
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [password, setPassword] = useState("");
+  const [showReauthenticate, setShowReauthenticate] = useState(false);  
   const navigate = useNavigate();
   const userId = localStorage.getItem("userId");
 
@@ -131,6 +134,73 @@ export default function Profile() {
         });
       }
     );
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      
+      if (!currentUser) {
+        toast.error("You must be logged in to delete your account");
+        return;
+      }
+      
+      // Delete user document from Firestore
+      const userRef = doc(db, "users", userId);
+      await deleteDoc(userRef);
+      
+      // Delete user from Firebase Authentication
+      await deleteUser(currentUser);
+      
+      // Clear localStorage
+      localStorage.removeItem("userId");
+      
+      // Show success message
+      toast.success("Account deleted successfully");
+      
+      // Navigate to login page
+      navigate("/login");
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      
+      // If error code indicates re-authentication is needed
+      if (error.code === 'auth/requires-recent-login') {
+        setShowReauthenticate(true);
+        toast.error("For security, please re-enter your password to delete your account");
+      } else {
+        toast.error("Error deleting account: " + error.message);
+      }
+    }
+  };
+  
+  const handleReauthenticate = async () => {
+    try {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      
+      if (!currentUser || !userData) {
+        toast.error("You must be logged in to delete your account");
+        return;
+      }
+      
+      // Create credential with the user's email and provided password
+      const credential = EmailAuthProvider.credential(
+        userData.email,
+        password
+      );
+      
+      // Reauthenticate
+      await reauthenticateWithCredential(currentUser, credential);
+      
+      // Now try deleting again
+      await handleDeleteAccount();
+      
+      setShowReauthenticate(false);
+    } catch (error) {
+      console.error("Error reauthenticating:", error);
+      toast.error("Incorrect password. Please try again.");
+    }
   };
 
   // Show Spinner while loading or uploading
@@ -284,6 +354,64 @@ export default function Profile() {
             >
               <FaLock className="mr-2" /> Update Password
             </button>
+          </div>
+
+          {/* Delete Account Section */}
+          <div className="mb-8">
+            <h3 className="text-2xl font-bold text-gray-800 mb-4">Delete Account</h3>
+            <p className="text-gray-600 mb-4">This action cannot be undone. All your data will be permanently deleted.</p>
+            
+            {showReauthenticate ? (
+              <div className="space-y-4">
+                <p className="text-red-600 font-semibold">For security reasons, please enter your password to confirm:</p>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Your password"
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setShowReauthenticate(false)}
+                    className="bg-gray-600 text-white p-3 rounded-lg hover:bg-gray-700 transition duration-300 flex items-center justify-center"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleReauthenticate}
+                    className="bg-red-600 text-white p-3 rounded-lg hover:bg-red-700 transition duration-300 flex items-center justify-center"
+                  >
+                    <FaTrash className="mr-2" /> Confirm Delete
+                  </button>
+                </div>
+              </div>
+            ) : showDeleteConfirm ? (
+              <div className="space-y-4">
+                <p className="text-red-600 font-semibold">Are you sure you want to delete your account?</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="bg-gray-600 text-white p-3 rounded-lg hover:bg-gray-700 transition duration-300 flex items-center justify-center"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteAccount}
+                    className="bg-red-600 text-white p-3 rounded-lg hover:bg-red-700 transition duration-300 flex items-center justify-center"
+                  >
+                    <FaTrash className="mr-2" /> Confirm Delete
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="w-full bg-red-600 text-white p-3 rounded-lg hover:bg-red-700 transition duration-300 flex items-center justify-center"
+              >
+                <FaTrash className="mr-2" /> Delete My Account
+              </button>
+            )}
           </div>
         </div>
       </div>

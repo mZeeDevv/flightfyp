@@ -107,7 +107,6 @@ export default function Signup() {
         profilePictureUrl = await uploadProfilePicture(profilePicture, userId);
       }
 
-      // Save user data to Firestore with UID as the document ID
       await setDoc(doc(db, "users", userId), {
         uid: userId,
         name: formData.name,
