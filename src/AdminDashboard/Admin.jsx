@@ -20,10 +20,6 @@ export default function Admin() {
         for (const doc of feedbackSnapshot.docs) {
           const feedback = doc.data();
           const userId = feedback.userId;
-
-          console.log("Feedback Data:", feedback); // Debugging
-          console.log("User ID:", userId); // Debugging
-
           // Fetch user data for the corresponding userId
           const userRef = collection(db, "users");
           const userQuery = query(userRef, where("uid", "==", userId)); // Ensure this matches your Firestore structure

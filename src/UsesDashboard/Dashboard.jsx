@@ -8,11 +8,12 @@ export default function DashboardData({ userId, children }) {
   const [dashboardData, setDashboardData] = useState({
     flights: 0,
     hotels: 0,
-    taxis: 0,
+    trips: 0,
   });
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate(); 
-const auth = getAuth
+  const auth = getAuth();
+  
   const handleLogout = async () => {
     try {
       await signOut(auth); 
@@ -34,6 +35,7 @@ const auth = getAuth
         );
         const flightsSnapshot = await getDocs(flightsQuery);
         const flightsCount = flightsSnapshot.size;
+
         const hotelsQuery = query(
           collection(db, "user_hotels"),
           where("userId", "==", userId)
@@ -41,19 +43,19 @@ const auth = getAuth
         const hotelsSnapshot = await getDocs(hotelsQuery);
         const hotelsCount = hotelsSnapshot.size;
 
-        // Fetch user taxis
-        const taxisQuery = query(
-          collection(db, "user_taxis"),
+        // Fetch total trips from user_trip_bookings
+        const tripsQuery = query(
+          collection(db, "user_trip_bookings"),
           where("userId", "==", userId)
         );
-        const taxisSnapshot = await getDocs(taxisQuery);
-        const taxisCount = taxisSnapshot.size;
+        const tripsSnapshot = await getDocs(tripsQuery);
+        const tripsCount = tripsSnapshot.size;
 
         // Update dashboard data
         setDashboardData({
           flights: flightsCount,
           hotels: hotelsCount,
-          taxis: taxisCount,
+          trips: tripsCount,
         });
       } catch (error) {
         console.error("Error fetching dashboard data:", error);

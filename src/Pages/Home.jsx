@@ -7,6 +7,7 @@ import Newsletter from "../Components/Mail";
 import "../App.css";
 import bg from "../assets/254381.webp";
 import ChatWidget from "../components/ChatWidget";
+import FlightRecommendations from "../Components/FlightRecommendations";
 
 export default function Home() {
     const [tripType, setTripType] = useState("RETURN"); // Default to return
@@ -411,10 +412,14 @@ export default function Home() {
                     </div>
                 </div>
             )}
+            
+            {/* Add Flight Recommendations after the search section but before About */}
+            {showContent && <FlightRecommendations />}
+            
             <About />
             <Cheap />
             <Newsletter />
-            <ChatWidget />
+            {/* <ChatWidget /> */}
         </>
     );
 }

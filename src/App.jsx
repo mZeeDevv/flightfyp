@@ -29,11 +29,16 @@ import Payment from "./Flights/Payment";
 // Hotel
 import HotelSearch from "./Pages/Hotels";
 import BudgetPlanner from './Planner/BudgetPlanner';
+import UserHotels from "./Pages/UserHotels";
 
 // UserDasboard 
 import Sidebar from "./Components/Sidebar";
 import UserFlights from "./UsesDashboard/UserFlights";
 import FavoriteTrips from "./UsesDashboard/FavTrips";
+import UserTrips from './UsesDashboard/UserTrips';
+
+// Import the AdminRoute component
+import AdminRoute from './Components/AdminRoute';
 
 // Layout Component for Sidebar
 function SidebarLayout({ children }) {
@@ -86,7 +91,6 @@ function App() {
             <Route path="/confirm" element={<Confirm />} />
             <Route path="/flight-details" element={<FlightDetails />} />
             <Route path="/payment" element={<Payment />} />
-            <Route path="/admin" element={<Admin />} />
             <Route path="/taxi" element={<Taxi />} />
             <Route path="/hotels" element={<HotelSearch />} />
             <Route path="/budget-planner" element={<BudgetPlanner />} />
@@ -122,14 +126,7 @@ function App() {
                 </SidebarLayout>
               }
                />
-            <Route
-              path="/my-hotels"
-              element={
-                <SidebarLayout>
-                  <div>My Hotels Page</div>
-                </SidebarLayout>
-              }
-            />
+            
             <Route
               path="/feedback"
               element={
@@ -138,6 +135,27 @@ function App() {
                 </SidebarLayout>
               }
             />
+            <Route
+            path="/my-trips"
+            element={
+              <SidebarLayout>
+                <UserTrips />
+              </SidebarLayout>
+            }
+          />
+          <Route
+            path="/my-hotels"
+            element={
+              <SidebarLayout>
+                <UserHotels />
+              </SidebarLayout>
+            }
+          />
+            {/* Wrap admin routes with AdminRoute */}
+            <Route element={<AdminRoute />}>
+              <Route path="/admin" element={<Admin />} />
+              {/* Any other admin routes */}
+            </Route>
           </Routes>
         </div>
         <Footer />

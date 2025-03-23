@@ -5,7 +5,7 @@ import { db } from "../firebase";
 import { toast } from "react-toastify";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import "react-toastify/dist/ReactToastify.css";
-import { FaPlane, FaCar, FaHotel, FaUser, FaLock, FaEdit, FaSave } from "react-icons/fa";
+import { FaPlane, FaHotel, FaUser, FaLock, FaEdit, FaSave, FaSuitcase } from "react-icons/fa";
 import Spinner from '../Components/Spinner'; // Import the Spinner component
 import DashboardData from '../UsesDashboard/Dashboard'; // Import the DashboardData component
 
@@ -167,14 +167,14 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* Car Rides Card */}
+              {/* Total Trips Card */}
               <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 flex items-center">
                 <div className="bg-green-100 p-4 rounded-full mr-4">
-                  <FaCar className="text-green-500 text-2xl" />
+                  <FaSuitcase className="text-green-500 text-2xl" />
                 </div>
                 <div>
-                  <p className="text-gray-600">Car Rides</p>
-                  <p className="text-2xl font-bold text-gray-800">{dashboardData.taxis}</p>
+                  <p className="text-gray-600">Total Trips</p>
+                  <p className="text-2xl font-bold text-gray-800">{dashboardData.trips}</p>
                 </div>
               </div>
 
@@ -285,14 +285,6 @@ export default function Profile() {
               <FaLock className="mr-2" /> Update Password
             </button>
           </div>
-
-          {/* Feedback Button */}
-          <Link
-            to="/feedback"
-            className="w-full bg-purple-600 text-white p-3 rounded-lg mt-4 hover:bg-purple-700 transition duration-300 flex items-center justify-center"
-          >
-            Submit Feedback
-          </Link>
         </div>
       </div>
     </div>
