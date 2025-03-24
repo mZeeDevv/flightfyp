@@ -14,6 +14,14 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
     const navigate = useNavigate();
     // Debug props
     const uid = localStorage.getItem("userId");
+    
+    // Add state for the sidebar
+    const [showFlightDetailsSidebar, setShowFlightDetailsSidebar] = useState(false);
+    const [flightDetailsToken, setFlightDetailsToken] = useState(null);
+    const [flightDetailsData, setFlightDetailsData] = useState(null);
+    const [loadingFlightDetails, setLoadingFlightDetails] = useState(false);
+    const [flightDetailsError, setFlightDetailsError] = useState("");
+    
     useEffect(() => {
     }, [searchResults]);
 
@@ -341,6 +349,54 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         }
     };
 
+    // Function to handle viewing flight details
+    const handleViewFlightDetails = (event, token) => {
+        event.stopPropagation(); // Prevent triggering the parent onClick
+        setFlightDetailsToken(token);
+        setShowFlightDetailsSidebar(true);
+        fetchFlightDetails(token);
+    };
+    
+    // Function to fetch flight details
+    const fetchFlightDetails = async (token) => {
+        if (!token) return;
+        
+        setLoadingFlightDetails(true);
+        setFlightDetailsError("");
+        setFlightDetailsData(null);
+        
+        const url = `https://${API_HOST}/api/v1/flights/getFlightDetails?token=${token}&currency_code=INR`;
+        const options = {
+            method: "GET",
+            headers: {
+                "x-rapidapi-key": RAPIDAPI_KEY,
+                "x-rapidapi-host": API_HOST,
+            },
+        };
+        
+        try {
+            const response = await fetch(url, options);
+            const result = await response.json();
+            console.log("Flight Details API Response:", result);
+            
+            if (result.status === true && result.data) {
+                setFlightDetailsData(result.data);
+            } else {
+                setFlightDetailsError("No flight details found.");
+            }
+        } catch (error) {
+            console.error("Error fetching flight details:", error);
+            setFlightDetailsError("Failed to fetch flight details. Please try again later.");
+        } finally {
+            setLoadingFlightDetails(false);
+        }
+    };
+    
+    // Function to close the sidebar
+    const closeFlightDetailsSidebar = () => {
+        setShowFlightDetailsSidebar(false);
+    };
+    
     return (
         <div className="container mx-auto px-4 py-8 bg-black bg-opacity-90 min-h-screen">
             <h1 className="text-4xl font-bold mb-8 text-center text-white bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
@@ -421,6 +477,14 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                             <div className="bg-gray-700 p-2 rounded-lg mb-2">
                                                 <p className="text-xs text-gray-300 font-semibold">Total Price:</p>
                                                 <p className="text-sm font-bold text-blue-400">RS. {price}</p>
+                                            </div>
+                                            <div className="flex justify-between mt-2">
+                                                <button 
+                                                    className="w-full bg-blue-600 text-white py-1 rounded-lg hover:bg-blue-700 transition-all text-xs mr-1"
+                                                    onClick={(e) => handleViewFlightDetails(e, token)}
+                                                >
+                                                    View Details
+                                                </button>
                                             </div>
                                         </div>
                                     );
@@ -579,6 +643,190 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                     </div>
                 </div>
             </div>
+        
+            {/* Flight Details Sidebar */}
+            {showFlightDetailsSidebar && (
+                <div className="fixed inset-0 z-50 overflow-hidden">
+                    {/* Overlay */}
+                    <div 
+                        className="absolute inset-0 bg-black bg-opacity-50"
+                        onClick={closeFlightDetailsSidebar}
+                    ></div>
+                    
+                    {/* Sidebar */}
+                    <div className="absolute inset-y-0 right-0 max-w-full flex">
+                        <div className="relative w-screen max-w-md">
+                            <div className="h-full bg-gray-800 shadow-xl flex flex-col overflow-y-auto">
+                                {/* Header */}
+                                <div className="px-4 py-6 bg-gray-900 flex items-center justify-between">
+                                    <h2 className="text-xl font-bold text-white">Flight Details</h2>
+                                    <button 
+                                        onClick={closeFlightDetailsSidebar}
+                                        className="text-gray-400 hover:text-white focus:outline-none"
+                                    >
+                                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                
+                                {/* Content */}
+                                <div className="flex-1 px-4 py-6">
+                                    {loadingFlightDetails ? (
+                                        <div className="flex justify-center items-center h-64">
+                                            <Spinner />
+                                        </div>
+                                    ) : flightDetailsError ? (
+                                        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded">
+                                            <p>{flightDetailsError}</p>
+                                        </div>
+                                    ) : flightDetailsData ? (
+                                        <div className="space-y-6 text-gray-200">
+                                            {/* Flight Route */}
+                                            <div className="border-b border-gray-700 pb-4">
+                                                <h3 className="text-lg font-semibold mb-2">Flight Route</h3>
+                                                <p className="text-gray-300">
+                                                    {flightDetailsData.segments?.[0]?.departureAirport?.name} → {flightDetailsData.segments?.[0]?.arrivalAirport?.name}
+                                                </p>
+                                            </div>
+
+                                            {/* Flight Timing */}
+                                            <div className="border-b border-gray-700 pb-4">
+                                                <h3 className="text-lg font-semibold mb-2">Timing</h3>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <p className="font-medium">Departure</p>
+                                                        <p className="text-gray-300">
+                                                            {flightDetailsData.segments?.[0]?.departureTime || "N/A"}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium">Arrival</p>
+                                                        <p className="text-gray-300">
+                                                            {flightDetailsData.segments?.[0]?.arrivalTime || "N/A"}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Price */}
+                                            <div className="border-b border-gray-700 pb-4">
+                                                <h3 className="text-lg font-semibold mb-2">Price</h3>
+                                                <p className="text-green-400 font-bold">
+                                                    RS. {flightDetailsData.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || "N/A"}
+                                                </p>
+                                            </div>
+
+                                            {/* Luggage Information */}
+                                            <div className="border-b border-gray-700 pb-4">
+                                                <h3 className="text-lg font-semibold mb-2">Luggage Information</h3>
+                                                {flightDetailsData.segments?.map((segment, segmentIndex) => (
+                                                    <div key={segmentIndex} className="mb-4">
+                                                        <p className="font-medium">Segment {segmentIndex + 1}</p>
+                                                        <div className="grid grid-cols-2 gap-4 mt-2">
+                                                            {/* Cabin Luggage */}
+                                                            <div className="bg-gray-700 p-2 rounded">
+                                                                <p className="font-medium text-sm">Cabin Luggage</p>
+                                                                <p className="text-gray-300 text-sm">
+                                                                    {segment.travellerCabinLuggage?.[0]?.luggageAllowance?.maxPiece} piece(s),{" "}
+                                                                    {segment.travellerCabinLuggage?.[0]?.luggageAllowance?.maxWeightPerPiece}{" "}
+                                                                    {segment.travellerCabinLuggage?.[0]?.luggageAllowance?.massUnit}
+                                                                </p>
+                                                            </div>
+                                                            {/* Checked Luggage */}
+                                                            <div className="bg-gray-700 p-2 rounded">
+                                                                <p className="font-medium text-sm">Checked Luggage</p>
+                                                                <p className="text-gray-300 text-sm">
+                                                                    {segment.travellerCheckedLuggage?.[0]?.luggageAllowance?.maxPiece} piece(s),{" "}
+                                                                    {segment.travellerCheckedLuggage?.[0]?.luggageAllowance?.maxTotalWeight}{" "}
+                                                                    {segment.travellerCheckedLuggage?.[0]?.luggageAllowance?.massUnit}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* Flight Stops */}
+                                            <div className="border-b border-gray-700 pb-4">
+                                                <h3 className="text-lg font-semibold mb-2">Flight Stops</h3>
+                                                {flightDetailsData.segments?.[0]?.legs?.map((leg, index) => {
+                                                    // Remove duplicate airlines
+                                                    const uniqueCarriers = leg.carriersData?.filter(
+                                                        (carrier, carrierIndex, self) =>
+                                                            self.findIndex((c) => c.name === carrier.name) === carrierIndex
+                                                    );
+
+                                                    return (
+                                                        <div key={index} className={`mb-4 ${index !== flightDetailsData.segments[0].legs.length - 1 ? 'border-b border-gray-600 pb-4' : ''}`}>
+                                                            <p className="font-medium">Leg {index + 1}</p>
+                                                            <p className="text-gray-300">
+                                                                {leg.departureAirport?.name} → {leg.arrivalAirport?.name}
+                                                            </p>
+                                                            <p className="text-gray-300">Departure: {leg.departureTime}</p>
+                                                            <p className="text-gray-300">Arrival: {leg.arrivalTime}</p>
+                                                            
+                                                            {/* Airline Logos and Names */}
+                                                            <div className="mt-2">
+                                                                <h4 className="text-md font-semibold">Airline:</h4>
+                                                                <div className="flex flex-wrap gap-4 mt-2">
+                                                                    {uniqueCarriers?.map((carrier, carrierIndex) => (
+                                                                        <div key={carrierIndex} className="flex items-center space-x-2 bg-gray-700 p-2 rounded">
+                                                                            <img
+                                                                                src={carrier.logo}
+                                                                                alt={`${carrier.name} logo`}
+                                                                                className="w-8 h-8 rounded-full"
+                                                                            />
+                                                                            <p className="text-gray-300 text-sm">{carrier.name}</p>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Additional Details */}
+                                            <div className="border-b border-gray-700 pb-4">
+                                                <h3 className="text-lg font-semibold mb-2">Additional Information</h3>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="bg-gray-700 p-2 rounded">
+                                                        <p className="font-medium text-sm">Cabin Class</p>
+                                                        <p className="text-gray-300 text-sm">{flightDetailsData.segments?.[0]?.cabinClass || "N/A"}</p>
+                                                    </div>
+                                                    <div className="bg-gray-700 p-2 rounded">
+                                                        <p className="font-medium text-sm">Trip Type</p>
+                                                        <p className="text-gray-300 text-sm">{flightDetailsData.tripType || "N/A"}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Select Button */}
+                                            <div className="pt-4">
+                                                <button
+                                                    onClick={() => {
+                                                        const price = flightDetailsData.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || 0;
+                                                        handleFlightClick(flightDetailsToken, price, flightDetailsData);
+                                                        closeFlightDetailsSidebar();
+                                                    }}
+                                                    className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-all text-sm font-medium"
+                                                >
+                                                    Select This Flight
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center text-gray-400">
+                                            No flight details available.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

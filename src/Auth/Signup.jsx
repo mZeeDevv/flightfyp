@@ -112,8 +112,8 @@ export default function Signup() {
         name: formData.name,
         email: formData.email,
         travelClass: formData.travelClass,
-        profilePictureUrl, // Save the profile picture URL
-        emailVerified: false, // Track email verification status
+        profilePictureUrl, 
+        emailVerified: false, 
       });
 
     } catch (error) {

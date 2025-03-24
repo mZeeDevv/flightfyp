@@ -14,7 +14,74 @@ export default function Flights() {
   const [airlines, setAirlines] = useState([]); // State for airlines
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  
+  // Add state for the sidebar
+  const [showFlightDetailsSidebar, setShowFlightDetailsSidebar] = useState(false);
+  const [flightDetailsToken, setFlightDetailsToken] = useState(null);
+  const [flightDetailsData, setFlightDetailsData] = useState(null);
+  const [loadingFlightDetails, setLoadingFlightDetails] = useState(false);
+  const [flightDetailsError, setFlightDetailsError] = useState("");
 
+  // Function to handle viewing flight details in sidebar
+  const handleViewFlightDetails = (token) => {
+    setFlightDetailsToken(token);
+    setShowFlightDetailsSidebar(true);
+    fetchFlightDetails(token);
+  };
+  
+  // Function to fetch flight details
+  const fetchFlightDetails = async (token) => {
+    if (!token) return;
+    
+    setLoadingFlightDetails(true);
+    setFlightDetailsError("");
+    setFlightDetailsData(null);
+    
+    const url = `https://${API_HOST}/api/v1/flights/getFlightDetails?token=${token}&currency_code=INR`;
+    const options = {
+      method: "GET",
+      headers: {
+        "x-rapidapi-key": RAPIDAPI_KEY,
+        "x-rapidapi-host": API_HOST,
+      },
+    };
+    
+    try {
+      const response = await fetch(url, options);
+      const result = await response.json();
+      console.log("Flight Details API Response:", result);
+      
+      if (result.status === true && result.data) {
+        setFlightDetailsData(result.data);
+      } else {
+        setFlightDetailsError("No flight details found.");
+      }
+    } catch (error) {
+      console.error("Error fetching flight details:", error);
+      setFlightDetailsError("Failed to fetch flight details. Please try again later.");
+    } finally {
+      setLoadingFlightDetails(false);
+    }
+  };
+  
+  // Function to close the sidebar
+  const closeFlightDetailsSidebar = () => {
+    setShowFlightDetailsSidebar(false);
+  };
+
+  // Function to handle proceed to payment
+  const handlePaymentClick = () => {
+    if (!flightDetailsData) return;
+    
+    navigate('/payment', { 
+      state: { 
+        amount: flightDetailsData.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units,
+        flightNumber: flightDetailsData.segments?.[0]?.legs?.[0]?.flightNumber,
+        token: flightDetailsToken
+      } 
+    });
+  };
+  
   useEffect(() => {
     const fetchFlights = async () => {
       if (!fromId || !toId || !departureDate) {
@@ -257,14 +324,226 @@ export default function Flights() {
                     <p className="text-xl font-bold text-blue-600">RS. {price}</p>
                   </div>
                   <button
-                    onClick={() => handleMoreInfo(deal.token)}
+                    onClick={() => handleViewFlightDetails(deal.token)}
                     className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors"
                   >
-                    More Information
+                    View Details
                   </button>
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+      
+      {/* Flight Details Sidebar */}
+      {showFlightDetailsSidebar && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          {/* Overlay */}
+          <div 
+            className="absolute inset-0 bg-black bg-opacity-50"
+            onClick={closeFlightDetailsSidebar}
+          ></div>
+          
+          {/* Sidebar */}
+          <div className="absolute inset-y-0 right-0 max-w-full flex">
+            <div className="relative w-screen max-w-md">
+              <div className="h-full bg-white shadow-xl flex flex-col overflow-y-auto">
+                {/* Header */}
+                <div className="px-4 py-6 bg-blue-600 flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-white">Flight Details</h2>
+                  <button 
+                    onClick={closeFlightDetailsSidebar}
+                    className="text-white hover:text-gray-200 focus:outline-none"
+                  >
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                {/* Content */}
+                <div className="flex-1 px-4 py-6 overflow-y-auto">
+                  {loadingFlightDetails ? (
+                    <div className="flex justify-center items-center h-64">
+                      <Spinner />
+                    </div>
+                  ) : flightDetailsError ? (
+                    <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded">
+                      <p>{flightDetailsError}</p>
+                    </div>
+                  ) : flightDetailsData ? (
+                    <div className="space-y-6">
+                      {/* Flight Route */}
+                      <div className="border-b pb-4">
+                        <h2 className="text-xl font-semibold">Flight Route</h2>
+                        <p className="text-gray-600">
+                          {flightDetailsData.segments?.[0]?.departureAirport?.name} → {flightDetailsData.segments?.[0]?.arrivalAirport?.name}
+                        </p>
+                      </div>
+
+                      {/* Flight Timing */}
+                      <div className="border-b pb-4">
+                        <h2 className="text-xl font-semibold">Timing</h2>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="font-medium">Departure Time</p>
+                            <p className="text-gray-600">{flightDetailsData.segments?.[0]?.departureTime || "N/A"}</p>
+                          </div>
+                          <div>
+                            <p className="font-medium">Arrival Time</p>
+                            <p className="text-gray-600">{flightDetailsData.segments?.[0]?.arrivalTime || "N/A"}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Price */}
+                      <div className="border-b pb-4">
+                        <h2 className="text-xl font-semibold">Price</h2>
+                        <p className="text-green-600 font-bold text-xl">
+                          RS. {flightDetailsData.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || "N/A"}
+                        </p>
+                      </div>
+
+                      {/* Luggage Information */}
+                      <div className="border-b pb-4">
+                        <h2 className="text-xl font-semibold">Luggage Information</h2>
+                        {flightDetailsData.segments?.map((segment, segmentIndex) => (
+                          <div key={segmentIndex} className="mb-4">
+                            <p className="font-medium">Segment {segmentIndex + 1}</p>
+                            <div className="grid grid-cols-2 gap-4">
+                              {/* Cabin Luggage */}
+                              <div>
+                                <p className="font-medium">Cabin Luggage</p>
+                                <p className="text-gray-600">
+                                  {segment.travellerCabinLuggage?.[0]?.luggageAllowance?.maxPiece} piece(s),{" "}
+                                  {segment.travellerCabinLuggage?.[0]?.luggageAllowance?.maxWeightPerPiece}{" "}
+                                  {segment.travellerCabinLuggage?.[0]?.luggageAllowance?.massUnit}
+                                </p>
+                              </div>
+                              {/* Checked Luggage */}
+                              <div>
+                                <p className="font-medium">Checked Luggage</p>
+                                <p className="text-gray-600">
+                                  {segment.travellerCheckedLuggage?.[0]?.luggageAllowance?.maxPiece} piece(s),{" "}
+                                  {segment.travellerCheckedLuggage?.[0]?.luggageAllowance?.maxTotalWeight}{" "}
+                                  {segment.travellerCheckedLuggage?.[0]?.luggageAllowance?.massUnit}
+                                </p>
+                              </div>
+                            </div>
+                            {/* Add a horizontal line after each segment except the last one */}
+                            {segmentIndex !== flightDetailsData.segments.length - 1 && (
+                              <hr className="my-4 border-t border-gray-300" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Flight Stops */}
+                      <div className="border-b pb-4">
+                        <h2 className="text-xl font-semibold">Flight Stops</h2>
+                        {flightDetailsData.segments?.[0]?.legs?.map((leg, index) => {
+                          // Remove duplicate airlines
+                          const uniqueCarriers = leg.carriersData?.filter(
+                            (carrier, carrierIndex, self) =>
+                              self.findIndex((c) => c.name === carrier.name) === carrierIndex
+                          );
+
+                          return (
+                            <div key={index} className={`mb-4 ${index !== flightDetailsData.segments[0].legs.length - 1 ? 'border-b pb-4' : ''}`}>
+                              <p className="font-medium">Leg {index + 1}</p>
+                              <p className="text-gray-600">
+                                {leg.departureAirport?.name} → {leg.arrivalAirport?.name}
+                              </p>
+                              <p className="text-gray-600">Departure: {leg.departureTime}</p>
+                              <p className="text-gray-600">Arrival: {leg.arrivalTime}</p>
+                              {/* Airline Logos and Names */}
+                              <div className="mt-2">
+                                <h3 className="text-lg font-semibold">Airline:</h3>
+                                <div className="flex flex-wrap gap-4">
+                                  {uniqueCarriers?.map((carrier, carrierIndex) => (
+                                    <div key={carrierIndex} className="flex items-center space-x-2">
+                                      <img
+                                        src={carrier.logo}
+                                        alt={`${carrier.name} logo`}
+                                        className="w-10 h-10 rounded-full"
+                                      />
+                                      <p className="text-gray-600">{carrier.name}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Additional Details */}
+                      <div className="border-b pb-4">
+                        <h2 className="text-xl font-semibold">Additional Information</h2>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="font-medium">Cabin Class</p>
+                            <p className="text-gray-600">{flightDetailsData.segments?.[0]?.cabinClass || "N/A"}</p>
+                          </div>
+                          <div>
+                            <p className="font-medium">Trip Type</p>
+                            <p className="text-gray-600">{flightDetailsData.tripType || "N/A"}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Supplier Information */}
+                      <div className="border-b pb-4">
+                        <h2 className="text-xl font-semibold">Supplier Information</h2>
+                        {flightDetailsData.ancillaries?.flexibleTicket?.supplierInfo ? (
+                          <div>
+                            <p>{flightDetailsData.ancillaries.flexibleTicket.supplierInfo.name || "N/A"}</p>
+                            <p>
+                              <a
+                                href={flightDetailsData.ancillaries.flexibleTicket.supplierInfo.privacyPolicyUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-500 hover:underline"
+                              >
+                                Terms and Policy
+                              </a>
+                            </p>
+                          </div>
+                        ) : (
+                          <p>No supplier information available.</p>
+                        )}
+                      </div>
+
+                      {/* Travel Insurance Benefits */}
+                      <div>
+                        <h2 className="text-xl font-semibold">Travel Insurance Benefits</h2>
+                        {flightDetailsData.ancillaries?.travelInsurance?.content?.benefits ? (
+                          <ul className="list-disc list-inside text-gray-600">
+                            {flightDetailsData.ancillaries.travelInsurance.content.benefits.map((benefit, index) => (
+                              <li key={index}>{benefit}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p>No travel insurance benefits available.</p>
+                        )}
+                      </div>
+
+                      <div className="mt-6 flex justify-center">
+                        <button
+                          onClick={handlePaymentClick}
+                          className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Proceed to Payment
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-gray-600">No flight details available.</p>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
