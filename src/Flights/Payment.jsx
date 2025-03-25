@@ -10,7 +10,7 @@ import { getAuth } from 'firebase/auth';
 export default function Payment() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { amount, flightNumber, token } = location.state || {};
+  const { amount, flightNumber, token, apiKey } = location.state || {};
   const [paymentMethod, setPaymentMethod] = useState('credit');
   const [cardNumber, setCardNumber] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
@@ -67,11 +67,17 @@ export default function Payment() {
       return null;
     }
 
+    // Check if API key is available
+    if (!apiKey) {
+      console.error("No API key available");
+      return null;
+    }
+
     const url = `https://booking-com15.p.rapidapi.com/api/v1/flights/getFlightDetails?token=${token}&currency_code=INR`;
     const options = {
       method: "GET",
       headers: {
-        "x-rapidapi-key": "c78b8b63cemshd029e4bc8339cc2p13203djsncc173c1c68c4",
+        "x-rapidapi-key": apiKey,
         "x-rapidapi-host": "booking-com15.p.rapidapi.com",
       },
     };
@@ -79,8 +85,11 @@ export default function Payment() {
     try {
       const response = await fetch(url, options);
       const result = await response.json();
+      console.log("Flight details API response:", result);
       if (result.status === true && result.data) {
         return result.data;
+      } else {
+        console.error("API returned no data:", result);
       }
     } catch (error) {
       console.error("Error fetching flight details:", error);

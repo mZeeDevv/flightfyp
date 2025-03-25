@@ -237,13 +237,13 @@ const SubscriptionsList = () => {
                   placeholder="Write your newsletter here..."
                 ></textarea>
               </div>
-              <div className="mt-4 bg-yellow-50 p-3 rounded-md text-sm">
+              {/* <div className="mt-4 bg-yellow-50 p-3 rounded-md text-sm">
                 <p className="font-medium text-yellow-800">Important Note:</p>
                 <p className="text-yellow-700 mt-1">
                   Emails will be sent using Nodemailer from your personal email account.
                   Make sure you've started the email server and configured your email credentials.
                 </p>
-              </div>
+              </div> */}
             </div>
             <div className="px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse bg-gray-50 rounded-b-lg">
               <button

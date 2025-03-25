@@ -29,6 +29,7 @@ export default function FlightRecommendations() {
           if (!userSnap.empty) {
             const profile = userSnap.docs[0].data();
             setUserProfile(profile);
+            console.log("Firebase User Profile Data:", profile);
           }
 
           // Fetch user's flights from user_flights table
@@ -43,6 +44,7 @@ export default function FlightRecommendations() {
           const userFlights = [];
           userFlightsSnap.forEach(doc => {
             const flightData = doc.data();
+            console.log("Firebase Flight Document Data:", flightData);
             const flightDetails = flightData.flightDetails || {};
             
             userFlights.push({
@@ -59,36 +61,61 @@ export default function FlightRecommendations() {
             });
           });
           
+          console.log("Processed User Flights from Firebase:", userFlights);
+          
           if (userFlights.length > 0) {
-            // Get today's date in YYYY-MM-DD format
-            const today = new Date().toISOString().split('T')[0];
+            // Get up to 3 unique flight routes (based on departure-arrival pairs)
+            const uniqueRoutes = [];
+            const routeMap = new Map();
             
-            // For the first historical flight, fetch new available flights
-            const recentFlight = userFlights[0];
-            try {
-              // Properly encode airport names for the URL (replace spaces with %20)
-              const fromId = encodeURIComponent(recentFlight.departure);
-              const toId = encodeURIComponent(recentFlight.arrival);
-              
-              // Use the correct API endpoint from Flights.jsx with encoded parameters
-              const url = `https://${API_HOST}/api/v1/flights/searchFlights?fromId=${fromId}&toId=${toId}&departDate=${today}&currency_code=INR&cabinClass=ECONOMY`;
-              console.log("Encoded API URL:", url);
-              
-              const options = {
-                method: "GET",
-                headers: {
-                  "x-rapidapi-key": RAPIDAPI_KEY,
-                  "x-rapidapi-host": API_HOST,
+            userFlights.forEach(flight => {
+              const routeKey = `${flight.departure}-${flight.arrival}`;
+              if (!routeMap.has(routeKey) && uniqueRoutes.length < 3) {
+                routeMap.set(routeKey, true);
+                uniqueRoutes.push(flight);
+              }
+            });
+            
+            console.log("Unique flight routes for recommendations:", uniqueRoutes);
+            
+            // Array to collect all recommendations
+            let allRecommendations = [];
+            
+            // Process each unique route to get one recommendation per route
+            for (const pastFlight of uniqueRoutes) {
+              try {
+                // Get a future date 5-6 days from today for recommendations
+                const futureDate = new Date();
+                futureDate.setDate(futureDate.getDate() + 5 + Math.floor(Math.random() * 2));
+                const futureDateStr = futureDate.toISOString().split('T')[0];
+                
+                // First, get proper location IDs for departure and arrival
+                const fromLocationId = await fetchLocationId(pastFlight.departure);
+                const toLocationId = await fetchLocationId(pastFlight.arrival);
+                
+                if (!fromLocationId || !toLocationId) {
+                  console.warn(`Could not find location IDs for route ${pastFlight.departure} to ${pastFlight.arrival}`);
+                  continue;
                 }
-              };
-              
-              const response = await fetch(url, options);
-              const result = await response.json();
-              console.log("API Response:", result);
-              
-              if (result.status === true && result.data?.flightOffers?.length > 0) {
-                // Process the flight offers matching the structure from Flights.jsx
-                const flightRecommendations = result.data.flightOffers.slice(0, 3).map((offer, index) => {
+                
+                // Use the correct API endpoint with proper location IDs
+                const url = `https://${API_HOST}/api/v1/flights/searchFlights?fromId=${fromLocationId}&toId=${toLocationId}&departDate=${futureDateStr}&currency_code=INR&cabinClass=ECONOMY`;
+                
+                const options = {
+                  method: "GET",
+                  headers: {
+                    "x-rapidapi-key": RAPIDAPI_KEY,
+                    "x-rapidapi-host": API_HOST,
+                  }
+                };
+                
+                const response = await fetch(url, options);
+                const result = await response.json();
+                
+                if (result.status === true && result.data?.flightOffers?.length > 0) {
+                  // Get just the best/cheapest flight offer for this route
+                  const offer = result.data.flightOffers[0];
+                  
                   const departureAirport = offer.segments?.[0]?.departureAirport;
                   const arrivalAirport = offer.segments?.[0]?.arrivalAirport;
                   const departureTime = offer.segments?.[0]?.departureTime;
@@ -99,83 +126,60 @@ export default function FlightRecommendations() {
                   const duration = new Date(arrivalTime).getTime() - new Date(departureTime).getTime();
                   const durationMinutes = Math.floor(duration / (1000 * 60));
                   
-                  return {
-                    id: offer.token || `rec-${index}`,
+                  // Get airline info properly
+                  const marketingAirline = offer.segments?.[0]?.marketingAirline;
+                  const airlineName = marketingAirline?.name || 
+                                     offer.segments?.[0]?.legs?.[0]?.carriersData?.[0]?.name || 
+                                     "Unknown Airline";
+                  const airlineLogo = marketingAirline?.logoUrl || 
+                                     offer.segments?.[0]?.legs?.[0]?.carriersData?.[0]?.logo || 
+                                     null;
+                  
+                  // Create a recommendation for this route
+                  const recommendation = {
+                    id: offer.token || `rec-${pastFlight.departure}-${pastFlight.arrival}`,
                     token: offer.token,
-                    departure: departureAirport?.code || recentFlight.departure,
-                    arrival: arrivalAirport?.code || recentFlight.arrival,
+                    departure: departureAirport?.code || pastFlight.departure,
+                    arrival: arrivalAirport?.code || pastFlight.arrival,
                     departureTime: departureTime,
                     arrivalTime: arrivalTime,
-                    flightNumber: offer.segments?.[0]?.flightNumber || "N/A",
+                    flightNumber: offer.segments?.[0]?.flightNumber || 
+                                 offer.segments?.[0]?.legs?.[0]?.flightNumber || 
+                                 "N/A",
                     amount: price,
-                    airline: offer.segments?.[0]?.marketingAirline?.name || "Unknown Airline",
-                    airlineLogo: offer.segments?.[0]?.marketingAirline?.logoUrl,
+                    airline: airlineName,
+                    airlineLogo: airlineLogo,
                     duration: durationMinutes,
                     stops: offer.segments?.[0]?.legs?.length - 1 || 0
                   };
-                });
-                
-                setRecommendations(flightRecommendations);
-              } else {
-                // Fallback to user's flight history if API doesn't return expected data
-                setRecommendations(userFlights.slice(0, 3));
+                  
+                  allRecommendations.push(recommendation);
+                  console.log(`Added recommendation for route ${pastFlight.departure} to ${pastFlight.arrival}`);
+                }
+              } catch (routeError) {
+                console.error(`Error processing route ${pastFlight.departure} to ${pastFlight.arrival}:`, routeError);
+                // Continue to the next route on error
               }
-            } catch (apiError) {
-              console.error("API Error:", apiError);
-              // Fallback to user's flight history
-              setRecommendations(userFlights.slice(0, 3));
+            }
+            
+            // If we have recommendations, use them; otherwise show no recommendations message
+            if (allRecommendations.length > 0) {
+              console.log(`Setting ${allRecommendations.length} recommendations from user's flight history`);
+              setRecommendations(allRecommendations);
+            } else {
+              // No recommendations found despite having flight history
+              console.log("No recommendations could be generated from flight history");
+              setRecommendations([]);
             }
           } else {
-            // Fallback recommendations
-            setRecommendations([
-              {
-                id: "demo1",
-                token: "demo1",
-                departure: "KHI",
-                arrival: "ISB",
-                departureTime: new Date().toISOString(),
-                arrivalTime: new Date(new Date().getTime() + 2 * 60 * 60 * 1000).toISOString(),
-                flightNumber: "PK300",
-                amount: 25000,
-                airline: "PIA",
-                airlineLogo: "https://logos.skyscnr.com/images/airlines/favicon/PK.png",
-                duration: 120,
-                stops: 0
-              },
-              {
-                id: "demo2",
-                token: "demo2",
-                departure: "LHE",
-                arrival: "DXB",
-                departureTime: new Date().toISOString(),
-                arrivalTime: new Date(new Date().getTime() + 3 * 60 * 60 * 1000).toISOString(),
-                flightNumber: "EK625",
-                amount: 65000,
-                airline: "Emirates",
-                airlineLogo: "https://logos.skyscnr.com/images/airlines/favicon/EK.png",
-                duration: 180,
-                stops: 0
-              }
-            ]);
+            // User is logged in but has no flight history
+            console.log("User has no flight history");
+            setRecommendations([]);
           }
         } else {
-          // Demo recommendations for non-logged in users
-          setRecommendations([
-            {
-              id: "demo1",
-              token: "demo1",
-              departure: "KHI",
-              arrival: "ISB",
-              departureTime: new Date().toISOString(),
-              arrivalTime: new Date(new Date().getTime() + 2 * 60 * 60 * 1000).toISOString(),
-              flightNumber: "PK300",
-              amount: 25000,
-              airline: "PIA",
-              airlineLogo: "https://logos.skyscnr.com/images/airlines/favicon/PK.png",
-              duration: 120,
-              stops: 0
-            }
-          ]);
+          // User is not logged in - don't show any recommendations
+          console.log("User is not logged in, not showing recommendations");
+          setRecommendations([]);
         }
         
         setLoading(false);
@@ -183,6 +187,36 @@ export default function FlightRecommendations() {
         console.error("Error fetching data:", error);
         setError("Failed to load recommendations. Please try again later.");
         setLoading(false);
+      }
+    };
+
+    // Helper function to fetch location ID for a city/airport name
+    const fetchLocationId = async (query) => {
+      if (!query) return null;
+      
+      const url = `https://${API_HOST}/api/v1/flights/searchDestination?query=${encodeURIComponent(query)}`;
+      const options = {
+        method: "GET",
+        headers: {
+          "x-rapidapi-key": RAPIDAPI_KEY,
+          "x-rapidapi-host": API_HOST,
+        }
+      };
+      
+      try {
+        const response = await fetch(url, options);
+        const result = await response.json();
+        
+        if (result?.data?.length > 0) {
+          // Return the first match's ID
+          return result.data[0].id;
+        } else {
+          console.warn(`No location ID found for "${query}"`);
+          return null;
+        }
+      } catch (error) {
+        console.error(`Error fetching location ID for "${query}":`, error);
+        return null;
       }
     };
 
@@ -230,10 +264,10 @@ export default function FlightRecommendations() {
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-2xl font-bold text-gray-800">
             {userProfile?.name 
-              ? `Flights You Might Like, ${userProfile.name.split(' ')[0]}`
+              ? `${userProfile.name.split(' ')[0]}, Here Are Some Affordable Flights for You`
               : userId 
                 ? 'Recommended Flights Based on Your History' 
-                : 'Popular Flight Deals'}
+                : 'Flight Recommendations'}
           </h2>
           <Link to="/search" className="text-blue-600 hover:text-blue-800 flex items-center">
             View all flights <FaArrowRight className="ml-1" />
@@ -260,10 +294,27 @@ export default function FlightRecommendations() {
         ) : recommendations.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-lg shadow">
             <FaPlane className="mx-auto text-4xl text-gray-300 mb-4" />
-            <p className="text-gray-500">No flight recommendations available at the moment.</p>
-            <Link to="/search" className="mt-4 ml-4 inline-block text-blue-600 hover:underline">
-              Search for flights
-            </Link>
+            <p className="text-gray-600 text-lg mb-2">
+              {userId 
+                ? "No personalized flight recommendations available based on your history." 
+                : "Log in to get personalized flight recommendations based on your travel history."}
+            </p>
+            <div className="mt-4 flex justify-center gap-4">
+              <Link 
+                to="/search" 
+                className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Search for Flights
+              </Link>
+              {!userId && (
+                <Link 
+                  to="/login" 
+                  className="inline-block px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  Log In
+                </Link>
+              )}
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -333,9 +384,9 @@ export default function FlightRecommendations() {
                         <p className="text-xl font-bold text-green-600">RS. {flight.amount}</p>
                       </div>
                     </div>
-                    <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+                    <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm hover:bg-blue-700 transition-colors">
                       View Details
-                    </span>
+                    </div>
                   </div>
                 </div>
               </Link>

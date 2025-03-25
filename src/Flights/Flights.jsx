@@ -77,7 +77,8 @@ export default function Flights() {
       state: { 
         amount: flightDetailsData.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units,
         flightNumber: flightDetailsData.segments?.[0]?.legs?.[0]?.flightNumber,
-        token: flightDetailsToken
+        token: flightDetailsToken,
+        apiKey: RAPIDAPI_KEY
       } 
     });
   };
