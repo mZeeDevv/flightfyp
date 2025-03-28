@@ -22,6 +22,10 @@ export default function Flights() {
   const [loadingFlightDetails, setLoadingFlightDetails] = useState(false);
   const [flightDetailsError, setFlightDetailsError] = useState("");
 
+  // Add sorting state
+  const [sortOption, setSortOption] = useState("recommended");
+  const [sortedFlights, setSortedFlights] = useState([]);
+
   // Function to handle viewing flight details in sidebar
   const handleViewFlightDetails = (token) => {
     setFlightDetailsToken(token);
@@ -128,6 +132,17 @@ export default function Flights() {
     fetchFlights();
   }, [fromId, toId, departureDate, returnDate, cabinClass]);
 
+  // Apply sorting whenever flight offers or sort option changes
+  useEffect(() => {
+    if (flightoffers.length > 0) {
+      const taggedOffers = assignTags(flightoffers);
+      const sorted = sortFlights(taggedOffers, sortOption);
+      setSortedFlights(sorted);
+    } else {
+      setSortedFlights([]);
+    }
+  }, [flightoffers, sortOption]);
+
   // Function to calculate flight duration
   const calculateDuration = (departureTime, arrivalTime) => {
     const depTime = new Date(departureTime).getTime();
@@ -190,6 +205,94 @@ export default function Flights() {
       return { ...flight, tags };
     });
   };
+
+  // Function to sort flights based on different criteria
+  const sortFlights = (flights, option) => {
+    if (!flights || flights.length === 0) return [];
+    
+    const flightsCopy = [...flights];
+    
+    switch (option) {
+      case "price-low":
+        return flightsCopy.sort((a, b) => {
+          const priceA = a.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || Infinity;
+          const priceB = b.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || Infinity;
+          return priceA - priceB;
+        });
+      
+      case "price-high":
+        return flightsCopy.sort((a, b) => {
+          const priceA = a.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || 0;
+          const priceB = b.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || 0;
+          return priceB - priceA;
+        });
+      
+      case "duration":
+        return flightsCopy.sort((a, b) => {
+          const durationA = calculateDuration(a.segments?.[0]?.departureTime, a.segments?.[0]?.arrivalTime);
+          const durationB = calculateDuration(b.segments?.[0]?.departureTime, b.segments?.[0]?.arrivalTime);
+          return durationA - durationB;
+        });
+      
+      case "departure":
+        return flightsCopy.sort((a, b) => {
+          const depTimeA = new Date(a.segments?.[0]?.departureTime || 0).getTime();
+          const depTimeB = new Date(b.segments?.[0]?.departureTime || 0).getTime();
+          return depTimeA - depTimeB;
+        });
+      
+      case "comfort":
+        return flightsCopy.sort((a, b) => {
+          // Comfort score: fastest gets priority, multi-stop gets penalty
+          let scoreA = 0;
+          let scoreB = 0;
+          
+          // Check for multi-stop (lower comfort)
+          const legsA = a.segments?.[0]?.legs?.length || 1;
+          const legsB = b.segments?.[0]?.legs?.length || 1;
+          
+          if (legsA > 1) scoreA -= 50;
+          if (legsB > 1) scoreB -= 50;
+          
+          // Check for fastest tag (higher comfort)
+          if (a.tags?.includes("Fastest")) scoreA += 30;
+          if (b.tags?.includes("Fastest")) scoreB += 30;
+          
+          // Factor in duration (shorter = more comfortable)
+          const durationA = calculateDuration(a.segments?.[0]?.departureTime, a.segments?.[0]?.arrivalTime);
+          const durationB = calculateDuration(b.segments?.[0]?.departureTime, b.segments?.[0]?.arrivalTime);
+          
+          scoreA += (1000 - Math.min(durationA, 1000))/10; // Cap at 1000 min, higher score for shorter flights
+          scoreB += (1000 - Math.min(durationB, 1000))/10;
+          
+          return scoreB - scoreA; // Higher score first
+        });
+      
+      case "recommended":
+      default:
+        // Default sorting shows best value flights first (using tags)
+        return flightsCopy.sort((a, b) => {
+          // Priority: Best > Fastest > Cheapest > Others
+          const tagPriorityOrder = {"Best": 3, "Fastest": 2, "Cheapest": 1};
+          
+          const highestTagA = a.tags?.reduce((highest, tag) => 
+            (tagPriorityOrder[tag] > tagPriorityOrder[highest] || !highest) ? tag : highest, "");
+          const highestTagB = b.tags?.reduce((highest, tag) => 
+            (tagPriorityOrder[tag] > tagPriorityOrder[highest] || !highest) ? tag : highest, "");
+            
+          const priorityA = tagPriorityOrder[highestTagA] || 0;
+          const priorityB = tagPriorityOrder[highestTagB] || 0;
+          
+          return priorityB - priorityA;
+        });
+    }
+  };
+
+  // Handler for sort option change
+  const handleSortChange = (option) => {
+    setSortOption(option);
+  };
+
   const taggedFlightOffers = assignTags(flightoffers);
   if (loading) {
     return (
@@ -251,18 +354,91 @@ export default function Flights() {
         </div>
       )}
 
-      {/* Flight Offers Section */}
-      {taggedFlightOffers.length > 0 && (
+      {/* Flight Offers Section with Sorting Options */}
+      {sortedFlights.length > 0 && (
         <div className="w-full p-6">
-          <h2 className="text-2xl font-semibold mb-4">Flight Offers</h2>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+            <h2 className="text-2xl font-semibold mb-4 md:mb-0">Flight Offers</h2>
+            
+            {/* Sorting Options */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => handleSortChange('recommended')}
+                className={`px-3 py-1 rounded-full text-sm ${
+                  sortOption === 'recommended' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Recommended
+              </button>
+              <button
+                onClick={() => handleSortChange('price-low')}
+                className={`px-3 py-1 rounded-full text-sm ${
+                  sortOption === 'price-low' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Price (Low to High)
+              </button>
+              <button
+                onClick={() => handleSortChange('price-high')}
+                className={`px-3 py-1 rounded-full text-sm ${
+                  sortOption === 'price-high' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Price (High to Low)
+              </button>
+              <button
+                onClick={() => handleSortChange('duration')}
+                className={`px-3 py-1 rounded-full text-sm ${
+                  sortOption === 'duration' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Duration
+              </button>
+              <button
+                onClick={() => handleSortChange('departure')}
+                className={`px-3 py-1 rounded-full text-sm ${
+                  sortOption === 'departure' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Departure Time
+              </button>
+              <button
+                onClick={() => handleSortChange('comfort')}
+                className={`px-3 py-1 rounded-full text-sm ${
+                  sortOption === 'comfort' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Comfort Level
+              </button>
+            </div>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6">
-            {taggedFlightOffers.map((deal, index) => {
+            {sortedFlights.map((deal, index) => {
               const departureAirport = deal.segments?.[0]?.departureAirport;
               const arrivalAirport = deal.segments?.[0]?.arrivalAirport;
               const departureTime = deal.segments?.[0]?.departureTime || "N/A";
               const arrivalTime = deal.segments?.[0]?.arrivalTime || "N/A";
               const tripType = deal.tripType || "N/A";
               const price = deal.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || "N/A";
+              
+              // Calculate duration for display
+              const durationMinutes = calculateDuration(departureTime, arrivalTime);
+              const hours = Math.floor(durationMinutes / 60);
+              const minutes = Math.round(durationMinutes % 60);
+              const formattedDuration = `${hours}h ${minutes}m`;
 
               return (
                 <div key={index} className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow">
@@ -297,6 +473,7 @@ export default function Flights() {
                       </div>
                       <div className="text-center">
                         <span className="text-sm text-blue-500 font-medium">{tripType}</span>
+                        <div className="text-xs mt-1">{formattedDuration}</div>
                       </div>
                       <div>
                         <h3 className="text-lg font-semibold text-gray-700">Arrival</h3>
@@ -316,6 +493,35 @@ export default function Flights() {
                     <div>
                       <p className="font-medium">Arrival Time</p>
                       <p className="text-sm">{arrivalTime}</p>
+                    </div>
+                  </div>
+
+                  {/* Comfort Level Indicator */}
+                  <div className="mb-3">
+                    <p className="font-medium">Comfort Level:</p>
+                    <div className="flex items-center mt-1">
+                      {deal.segments?.[0]?.legs?.length > 1 ? (
+                        <>
+                          <div className="w-24 bg-gray-200 rounded-full h-2">
+                            <div className="bg-red-500 h-2 rounded-full w-1/3"></div>
+                          </div>
+                          <span className="ml-2 text-xs text-gray-600">Low (Multi-stop)</span>
+                        </>
+                      ) : deal.tags?.includes("Fastest") ? (
+                        <>
+                          <div className="w-24 bg-gray-200 rounded-full h-2">
+                            <div className="bg-green-500 h-2 rounded-full w-full"></div>
+                          </div>
+                          <span className="ml-2 text-xs text-gray-600">High (Fastest)</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-24 bg-gray-200 rounded-full h-2">
+                            <div className="bg-yellow-500 h-2 rounded-full w-2/3"></div>
+                          </div>
+                          <span className="ml-2 text-xs text-gray-600">Medium</span>
+                        </>
+                      )}
                     </div>
                   </div>
 

@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Link } from 'react-router-dom';
-import { FaPlane, FaCalendarAlt, FaArrowRight, FaClock, FaMoneyBillWave } from 'react-icons/fa';
-import Spinner from './Spinner';
+import { FaPlane, FaArrowRight, FaClock, FaMoneyBillWave } from 'react-icons/fa';
 
 // Use the same API constants as in Flights.jsx
 const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
@@ -19,169 +18,169 @@ export default function FlightRecommendations() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        if (userId) {
-          // Fetch user profile
-          const userSnap = await getDocs(query(
-            collection(db, "users"),
-            where("uid", "==", userId)
-          ));
-          
-          if (!userSnap.empty) {
-            const profile = userSnap.docs[0].data();
-            setUserProfile(profile);
-            console.log("Firebase User Profile Data:", profile);
-          }
-
-          // Fetch user's flights from user_flights table
-          const userFlightsSnap = await getDocs(query(
-            collection(db, "user_flights"),
-            where("userId", "==", userId),
-            orderBy("flightDetails.departureTime", "desc"),
-            limit(10)
-          ));
-          
-          // Process each flight document
-          const userFlights = [];
-          userFlightsSnap.forEach(doc => {
-            const flightData = doc.data();
-            console.log("Firebase Flight Document Data:", flightData);
-            const flightDetails = flightData.flightDetails || {};
-            
-            userFlights.push({
-              id: doc.id,
-              userId: flightData.userId,
-              departure: flightDetails.departure || 'Unknown',
-              arrival: flightDetails.arrival || 'Unknown',
-              flightNumber: flightDetails.flightNumber || 'N/A',
-              airline: flightDetails.airline || 'Unknown Airline',
-              departureTime: flightDetails.departureTime,
-              arrivalTime: flightDetails.arrivalTime,
-              amount: flightDetails.amount || 0,
-              token: flightDetails.token || doc.id
-            });
-          });
-          
-          console.log("Processed User Flights from Firebase:", userFlights);
-          
-          if (userFlights.length > 0) {
-            // Get up to 3 unique flight routes (based on departure-arrival pairs)
-            const uniqueRoutes = [];
-            const routeMap = new Map();
-            
-            userFlights.forEach(flight => {
-              const routeKey = `${flight.departure}-${flight.arrival}`;
-              if (!routeMap.has(routeKey) && uniqueRoutes.length < 3) {
-                routeMap.set(routeKey, true);
-                uniqueRoutes.push(flight);
-              }
-            });
-            
-            console.log("Unique flight routes for recommendations:", uniqueRoutes);
-            
-            // Array to collect all recommendations
-            let allRecommendations = [];
-            
-            // Process each unique route to get one recommendation per route
-            for (const pastFlight of uniqueRoutes) {
-              try {
-                // Get a future date 5-6 days from today for recommendations
-                const futureDate = new Date();
-                futureDate.setDate(futureDate.getDate() + 5 + Math.floor(Math.random() * 2));
-                const futureDateStr = futureDate.toISOString().split('T')[0];
-                
-                // First, get proper location IDs for departure and arrival
-                const fromLocationId = await fetchLocationId(pastFlight.departure);
-                const toLocationId = await fetchLocationId(pastFlight.arrival);
-                
-                if (!fromLocationId || !toLocationId) {
-                  console.warn(`Could not find location IDs for route ${pastFlight.departure} to ${pastFlight.arrival}`);
-                  continue;
-                }
-                
-                // Use the correct API endpoint with proper location IDs
-                const url = `https://${API_HOST}/api/v1/flights/searchFlights?fromId=${fromLocationId}&toId=${toLocationId}&departDate=${futureDateStr}&currency_code=INR&cabinClass=ECONOMY`;
-                
-                const options = {
-                  method: "GET",
-                  headers: {
-                    "x-rapidapi-key": RAPIDAPI_KEY,
-                    "x-rapidapi-host": API_HOST,
-                  }
-                };
-                
-                const response = await fetch(url, options);
-                const result = await response.json();
-                
-                if (result.status === true && result.data?.flightOffers?.length > 0) {
-                  // Get just the best/cheapest flight offer for this route
-                  const offer = result.data.flightOffers[0];
-                  
-                  const departureAirport = offer.segments?.[0]?.departureAirport;
-                  const arrivalAirport = offer.segments?.[0]?.arrivalAirport;
-                  const departureTime = offer.segments?.[0]?.departureTime;
-                  const arrivalTime = offer.segments?.[0]?.arrivalTime;
-                  const price = offer.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || 0;
-                  
-                  // Calculate duration in minutes
-                  const duration = new Date(arrivalTime).getTime() - new Date(departureTime).getTime();
-                  const durationMinutes = Math.floor(duration / (1000 * 60));
-                  
-                  // Get airline info properly
-                  const marketingAirline = offer.segments?.[0]?.marketingAirline;
-                  const airlineName = marketingAirline?.name || 
-                                     offer.segments?.[0]?.legs?.[0]?.carriersData?.[0]?.name || 
-                                     "Unknown Airline";
-                  const airlineLogo = marketingAirline?.logoUrl || 
-                                     offer.segments?.[0]?.legs?.[0]?.carriersData?.[0]?.logo || 
-                                     null;
-                  
-                  // Create a recommendation for this route
-                  const recommendation = {
-                    id: offer.token || `rec-${pastFlight.departure}-${pastFlight.arrival}`,
-                    token: offer.token,
-                    departure: departureAirport?.code || pastFlight.departure,
-                    arrival: arrivalAirport?.code || pastFlight.arrival,
-                    departureTime: departureTime,
-                    arrivalTime: arrivalTime,
-                    flightNumber: offer.segments?.[0]?.flightNumber || 
-                                 offer.segments?.[0]?.legs?.[0]?.flightNumber || 
-                                 "N/A",
-                    amount: price,
-                    airline: airlineName,
-                    airlineLogo: airlineLogo,
-                    duration: durationMinutes,
-                    stops: offer.segments?.[0]?.legs?.length - 1 || 0
-                  };
-                  
-                  allRecommendations.push(recommendation);
-                  console.log(`Added recommendation for route ${pastFlight.departure} to ${pastFlight.arrival}`);
-                }
-              } catch (routeError) {
-                console.error(`Error processing route ${pastFlight.departure} to ${pastFlight.arrival}:`, routeError);
-                // Continue to the next route on error
-              }
-            }
-            
-            // If we have recommendations, use them; otherwise show no recommendations message
-            if (allRecommendations.length > 0) {
-              console.log(`Setting ${allRecommendations.length} recommendations from user's flight history`);
-              setRecommendations(allRecommendations);
-            } else {
-              // No recommendations found despite having flight history
-              console.log("No recommendations could be generated from flight history");
-              setRecommendations([]);
-            }
-          } else {
-            // User is logged in but has no flight history
-            console.log("User has no flight history");
-            setRecommendations([]);
-          }
-        } else {
+        if (!userId) {
           // User is not logged in - don't show any recommendations
-          console.log("User is not logged in, not showing recommendations");
           setRecommendations([]);
+          setLoading(false);
+          return;
+        }
+
+        // 1. Fetch user profile
+        const userSnap = await getDocs(query(
+          collection(db, "users"),
+          where("uid", "==", userId)
+        ));
+        
+        if (!userSnap.empty) {
+          const profile = userSnap.docs[0].data();
+          setUserProfile(profile);
+        }
+
+        // 2. Fetch user's flights from user_flights table
+        const userFlightsSnap = await getDocs(query(
+          collection(db, "user_flights"),
+          where("userId", "==", userId),
+          orderBy("flightDetails.departureTime", "desc"),
+          limit(10)
+        ));
+        
+        // 3. Process each flight document
+        const userFlights = [];
+        userFlightsSnap.forEach(doc => {
+          const flightData = doc.data();
+          const flightDetails = flightData.flightDetails || {};
+          
+          userFlights.push({
+            id: doc.id,
+            departure: flightDetails.departure || 'Unknown',
+            arrival: flightDetails.arrival || 'Unknown',
+            airline: flightDetails.airline || 'Unknown Airline',
+          });
+        });
+        
+        if (userFlights.length === 0) {
+          // User is logged in but has no flight history
+          setRecommendations([]);
+          setLoading(false);
+          return;
         }
         
+        // 4. Get up to 3 unique flight routes (based on departure-arrival pairs)
+        const uniqueRoutes = [];
+        const routeMap = new Map();
+        
+        userFlights.forEach(flight => {
+          const routeKey = `${flight.departure}-${flight.arrival}`;
+          if (!routeMap.has(routeKey) && uniqueRoutes.length < 3) {
+            routeMap.set(routeKey, true);
+            uniqueRoutes.push(flight);
+          }
+        });
+        
+        console.log("Unique flight routes found:", uniqueRoutes);
+        
+        // 5. Process each unique route to get three recommendations per route
+        let allRecommendations = [];
+        
+        for (const pastFlight of uniqueRoutes) {
+          try {
+            // 6. Get a future date 5-6 days from today for recommendations
+            const futureDate = new Date();
+            futureDate.setDate(futureDate.getDate() + 5 + Math.floor(Math.random() * 2));
+            const futureDateStr = futureDate.toISOString().split('T')[0];
+            
+            // 7. Get airport IDs using the same approach as in Home.jsx
+            const fromId = await fetchAirportId(pastFlight.departure);
+            const toId = await fetchAirportId(pastFlight.arrival);
+            
+            console.log(`Search for route ${pastFlight.departure} to ${pastFlight.arrival}:`, {
+              fromId,
+              toId,
+              departureDate: futureDateStr
+            });
+            
+            if (!fromId || !toId) {
+              console.log(`Skipping route ${pastFlight.departure} to ${pastFlight.arrival} - could not find airport IDs`);
+              continue;
+            }
+            
+            // 8. Use the airport IDs to search for flights
+            const url = `https://${API_HOST}/api/v1/flights/searchFlights?fromId=${fromId}&toId=${toId}&departDate=${futureDateStr}&currency_code=INR&cabinClass=ECONOMY`;
+            
+            const options = {
+              method: "GET",
+              headers: {
+                "x-rapidapi-key": RAPIDAPI_KEY,
+                "x-rapidapi-host": API_HOST,
+              }
+            };
+            
+            const response = await fetch(url, options);
+            if (!response.ok) {
+              throw new Error(`API response error: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            console.log(`Found ${result.data?.flightOffers?.length || 0} flight offers for route ${pastFlight.departure} to ${pastFlight.arrival}`);
+            
+            if (result.status === true && result.data?.flightOffers?.length > 0) {
+              // 9. Get the first 3 flight offers for this route (or all if less than 3)
+              const offersToShow = Math.min(2, result.data.flightOffers.length);
+              const routeRecommendations = [];
+              
+              for (let i = 0; i < offersToShow; i++) {
+                const offer = result.data.flightOffers[i];
+                
+                const departureAirport = offer.segments?.[0]?.departureAirport;
+                const arrivalAirport = offer.segments?.[0]?.arrivalAirport;
+                const departureTime = offer.segments?.[0]?.departureTime;
+                const arrivalTime = offer.segments?.[0]?.arrivalTime;
+                const price = offer.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || 0;
+                
+                // Calculate duration in minutes
+                const duration = new Date(arrivalTime).getTime() - new Date(departureTime).getTime();
+                const durationMinutes = Math.floor(duration / (1000 * 60));
+                
+                // Get airline info
+                const marketingAirline = offer.segments?.[0]?.marketingAirline;
+                const airlineName = marketingAirline?.name || 
+                                   offer.segments?.[0]?.legs?.[0]?.carriersData?.[0]?.name || 
+                                   "Unknown Airline";
+                const airlineLogo = marketingAirline?.logoUrl || 
+                                   offer.segments?.[0]?.legs?.[0]?.carriersData?.[0]?.logo || 
+                                   null;
+                
+                // 10. Create a recommendation for this route
+                const recommendation = {
+                  id: offer.token || `rec-${pastFlight.departure}-${pastFlight.arrival}-${i}`,
+                  token: offer.token,
+                  departure: departureAirport?.code || pastFlight.departure,
+                  arrival: arrivalAirport?.code || pastFlight.arrival,
+                  departureTime: departureTime,
+                  arrivalTime: arrivalTime,
+                  flightNumber: offer.segments?.[0]?.flightNumber || 
+                               offer.segments?.[0]?.legs?.[0]?.flightNumber || 
+                               "N/A",
+                  amount: price,
+                  airline: airlineName,
+                  airlineLogo: airlineLogo,
+                  duration: durationMinutes,
+                  stops: offer.segments?.[0]?.legs?.length - 1 || 0
+                };
+                
+                routeRecommendations.push(recommendation);
+              }
+              
+              allRecommendations = [...allRecommendations, ...routeRecommendations];
+            }
+          } catch (routeError) {
+            console.error(`Error processing route:`, routeError);
+            // Continue to the next route on error
+          }
+        }
+        
+        // 11. Set recommendations in state
+        setRecommendations(allRecommendations);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -190,33 +189,49 @@ export default function FlightRecommendations() {
       }
     };
 
-    // Helper function to fetch location ID for a city/airport name
-    const fetchLocationId = async (query) => {
-      if (!query) return null;
-      
-      const url = `https://${API_HOST}/api/v1/flights/searchDestination?query=${encodeURIComponent(query)}`;
+    // Fetch airport ID for a city - using same approach as Home.jsx
+    const fetchAirportId = async (city) => {
+      if (!city) return null;
+
+      const url = `https://${API_HOST}/api/v1/flights/searchDestination?query=${encodeURIComponent(city)}`;
       const options = {
-        method: "GET",
-        headers: {
-          "x-rapidapi-key": RAPIDAPI_KEY,
-          "x-rapidapi-host": API_HOST,
-        }
+          method: "GET",
+          headers: {
+              "x-rapidapi-key": RAPIDAPI_KEY,
+              "x-rapidapi-host": API_HOST,
+          },
       };
-      
+
       try {
-        const response = await fetch(url, options);
-        const result = await response.json();
-        
-        if (result?.data?.length > 0) {
-          // Return the first match's ID
-          return result.data[0].id;
-        } else {
-          console.warn(`No location ID found for "${query}"`);
-          return null;
-        }
+          const response = await fetch(url, options);
+          const result = await response.json();
+
+          if (result?.data?.length > 0) {
+              console.log(`Found airport ID for "${city}": ${result.data[0].id}`);
+              return result.data[0].id;
+          } else {
+              // Try to extract a city name from the full airport name
+              const cityMatch = city.match(/^(.*?)\s+(?:International\s+)?Airport/i);
+              if (cityMatch && cityMatch[1]) {
+                  const extractedCity = cityMatch[1].trim();
+                  console.log(`Trying with extracted city name: "${extractedCity}"`);
+                  
+                  const secondUrl = `https://${API_HOST}/api/v1/flights/searchDestination?query=${encodeURIComponent(extractedCity)}`;
+                  const secondResponse = await fetch(secondUrl, options);
+                  const secondResult = await secondResponse.json();
+                  
+                  if (secondResult?.data?.length > 0) {
+                      console.log(`Found airport ID for extracted city "${extractedCity}": ${secondResult.data[0].id}`);
+                      return secondResult.data[0].id;
+                  }
+              }
+              
+              console.log(`No airport ID found for "${city}"`);
+              return null;
+          }
       } catch (error) {
-        console.error(`Error fetching location ID for "${query}":`, error);
-        return null;
+          console.error(`Error fetching airport ID for "${city}":`, error);
+          return null;
       }
     };
 
@@ -287,7 +302,7 @@ export default function FlightRecommendations() {
         ) : error ? (
           <div className="bg-white rounded-lg shadow p-8 text-center">
             <p className="text-red-500">{error}</p>
-            <Link to="/search" className="mt-4 inline-block text-blue-600 hover:underline">
+            <Link to="/" className="mt-4 inline-block text-blue-600 hover:underline">
               Search for flights instead
             </Link>
           </div>
@@ -301,7 +316,7 @@ export default function FlightRecommendations() {
             </p>
             <div className="mt-4 flex justify-center gap-4">
               <Link 
-                to="/search" 
+                to="/" 
                 className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Search for Flights
