@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Spinner from '../Components/Spinner'; // Import the Spinner component
+import { logUserActivity } from "../services/LoggingService"; // Import logging service
 
 const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
 const API_HOST = "booking-com15.p.rapidapi.com";
@@ -76,6 +77,18 @@ export default function Flights() {
   // Function to handle proceed to payment
   const handlePaymentClick = () => {
     if (!flightDetailsData) return;
+
+    // Log the flight booking activity
+    const flightDetails = {
+      from: flightDetailsData.segments?.[0]?.departureAirport?.name || 'N/A',
+      to: flightDetailsData.segments?.[0]?.arrivalAirport?.name || 'N/A',
+      departureTime: flightDetailsData.segments?.[0]?.departureTime || 'N/A',
+      arrivalTime: flightDetailsData.segments?.[0]?.arrivalTime || 'N/A',
+      flightNumber: flightDetailsData.segments?.[0]?.legs?.[0]?.flightNumber || 'N/A',
+      price: flightDetailsData.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || 'N/A'
+    };
+    
+    logUserActivity('booked', 'flight', flightDetails);
     
     navigate('/payment', { 
       state: { 

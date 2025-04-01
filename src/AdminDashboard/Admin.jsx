@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../firebase"; 
-import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, limit, doc, getDoc } from "firebase/firestore";
 
 export default function Admin() {
   const [stats, setStats] = useState({
@@ -9,6 +9,9 @@ export default function Admin() {
     feedback: 0
   });
   const [loading, setLoading] = useState(true);
+  const [activityLogs, setActivityLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(true);
+  const [userMap, setUserMap] = useState({});
 
   useEffect(() => {
     const fetchDashboardStats = async () => {
@@ -40,8 +43,99 @@ export default function Admin() {
       }
     };
 
-    fetchDashboardStats();
+    const fetchUserData = async () => {
+      try {
+        const usersRef = collection(db, "users");
+        const usersSnapshot = await getDocs(usersRef);
+        
+        const users = {};
+        usersSnapshot.forEach(doc => {
+          const userData = doc.data();
+          users[doc.id] = userData.name || userData.displayName || userData.email || "Unknown User";
+        });
+        
+        setUserMap(users);
+        return users;
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        return {};
+      }
+    };
+
+    const fetchUserActivityLogs = async (users) => {
+      setLogsLoading(true);
+      try {
+        const logsRef = collection(db, "user_activity_logs");
+        const logsQuery = query(logsRef, orderBy("timestamp", "desc"), limit(10));
+        const logsSnapshot = await getDocs(logsQuery);
+        
+        const logs = [];
+        logsSnapshot.forEach(doc => {
+          logs.push({
+            id: doc.id,
+            ...doc.data()
+          });
+        });
+        
+        // If any logs have a userId that isn't in our userMap, try to fetch those users individually
+        const missingUserIds = logs
+          .map(log => log.userId || log.user)
+          .filter(userId => userId && !users[userId]);
+          
+        // Remove duplicates
+        const uniqueMissingUserIds = [...new Set(missingUserIds)];
+        
+        // Fetch missing users if any
+        for (const userId of uniqueMissingUserIds) {
+          try {
+            const userRef = doc(db, "users", userId);
+            const userSnap = await getDoc(userRef);
+            
+            if (userSnap.exists()) {
+              const userData = userSnap.data();
+              users[userId] = userData.name || userData.displayName || userData.email || "Unknown User";
+            }
+          } catch (err) {
+            console.error(`Error fetching user ${userId}:`, err);
+          }
+        }
+        
+        setUserMap(users);
+        setActivityLogs(logs);
+      } catch (error) {
+        console.error("Error fetching user activity logs:", error);
+      } finally {
+        setLogsLoading(false);
+      }
+    };
+
+    const initData = async () => {
+      fetchDashboardStats();
+      const users = await fetchUserData();
+      fetchUserActivityLogs(users);
+    };
+
+    initData();
   }, []);
+  
+  // Function to get user name from ID
+  const getUserName = (userId) => {
+    if (!userId) return "Unknown User";
+    return userMap[userId] || "Unknown User";
+  };
+  
+  // Function to format timestamp
+  const formatDate = (timestamp) => {
+    if (!timestamp) return "N/A";
+    
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
+  };
   
   return (
     <div className="min-h-screen bg-gray-100 p-8">
@@ -73,9 +167,37 @@ export default function Admin() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
-              <p className="text-gray-500">No recent activity to display</p>
-              {/* Add recent activity components here */}
+              <h2 className="text-xl font-semibold mb-4">Recent User Activity</h2>
+              {logsLoading ? (
+                <div className="flex justify-center items-center h-40">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                </div>
+              ) : activityLogs.length === 0 ? (
+                <p className="text-gray-500">No recent activity found</p>
+              ) : (
+                <div className="overflow-y-auto max-h-80">
+                  <table className="min-w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Activity</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {activityLogs.map(log => (
+                        <tr key={log.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                            {getUserName(log.userId || log.user)}
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600">{log.activity || log.action || 'Unknown action'} {log.activityType}</td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatDate(log.timestamp)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
             
             <div className="bg-white rounded-lg shadow-lg p-6">

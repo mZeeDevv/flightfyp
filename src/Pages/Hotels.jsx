@@ -10,6 +10,7 @@ import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { pdf } from "@react-pdf/renderer";
 import HotelInvoicePDF from "../Components/HotelInvoicePDF";
 import { useNavigate } from "react-router-dom";
+import { logUserActivity } from "../services/LoggingService"; // Import logging service
 
 export default function HotelSearch() {
     const storage = getStorage();
@@ -312,6 +313,18 @@ export default function HotelSearch() {
             // Save to Firebase
             const docRef = await addDoc(collection(db, "user_hotels"), bookingDetails);
             console.log("Hotel booking saved with ID: ", docRef.id);
+            
+            // Log user hotel booking activity
+            const hotelLogDetails = {
+                hotelName: selectedHotel.property.name,
+                location: selectedHotel.property.address || "",
+                checkInDate: arrivalDate,
+                checkOutDate: getCheckoutDate(),
+                daysOfStay: daysOfStay,
+                amount: totalPrice
+            };
+            
+            await logUserActivity('booked', 'hotel', hotelLogDetails);
             
             // Set booking data for invoice
             const updatedBookingData = {

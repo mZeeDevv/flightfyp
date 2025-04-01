@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, getStorage } from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
+import { logUserActivity } from "../services/LoggingService"; // Import logging service
 
 export default function Payment() {
   const location = useLocation();
@@ -159,6 +160,20 @@ export default function Payment() {
       const storageRef = ref(storage, `invoices/${newTransactionId}.pdf`);
       await uploadBytes(storageRef, pdfBlob);
       const pdfUrl = await getDownloadURL(storageRef);
+
+      // Log activity if not already logged in the Flights component
+      const flightLogDetails = {
+        from: details.segments?.[0]?.departureAirport?.name || 'N/A',
+        to: details.segments?.[0]?.arrivalAirport?.name || 'N/A',
+        departureTime: details.segments?.[0]?.departureTime || 'N/A',
+        arrivalTime: details.segments?.[0]?.arrivalTime || 'N/A',
+        flightNumber: details.segments?.[0]?.legs?.[0]?.flightNumber || 'N/A',
+        transactionId: newTransactionId,
+        price: amount || 'N/A',
+        paymentStatus: 'completed'
+      };
+      
+      await logUserActivity('completed payment for', 'flight', flightLogDetails);
 
       await saveFlightToFirebase({
         ...details,
