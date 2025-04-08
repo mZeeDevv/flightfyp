@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FaChartLine, FaUsers, FaPlane, FaHotel, FaComments, FaCog, FaSignOutAlt, FaBook } from 'react-icons/fa';
+import { FaChartLine, FaUsers, FaPlane, FaHotel, FaComments, FaCog, FaSignOutAlt, FaBook, FaChartBar } from 'react-icons/fa';
 import { getAuth, signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 
@@ -26,6 +26,7 @@ export default function AdminSidebar({ currentPath }) {
     // { path: '/admin/hotels', name: 'Hotel Management', icon: <FaHotel /> },
     { path: '/admin/feedback', name: 'Feedback', icon: <FaComments /> },
     { path: '/admin/newletter', name: 'Subscriptions', icon: <FaBook /> },
+    { path: '/admin/reports', name: 'Reports', icon: <FaChartBar /> },
     { path: '/admin/settings', name: 'Settings', icon: <FaCog /> },
   ];
 

@@ -86,8 +86,27 @@ export default function Payment() {
     try {
       const response = await fetch(url, options);
       const result = await response.json();
-      console.log("Flight details API response:", result);
+      console.log("Flight details API full response:", JSON.stringify(result, null, 2));
+      
       if (result.status === true && result.data) {
+       // Log the path to airline information
+        console.log("API success, checking airline information...");
+        
+        if (result.data.segments && result.data.segments.length > 0) {
+          const segment = result.data.segments[0];
+          console.log("First segment:", segment);
+          
+          if (segment.legs && segment.legs.length > 0) {
+            const leg = segment.legs[0];
+            console.log("First leg:", leg);
+            console.log("Airline info in first leg:", {
+              airlineName: leg.airlineName,
+              airline: leg.airline,
+              airlineCode: leg.airlineCode,
+              marketingCarrier: leg.marketingCarrier
+            });
+          }
+        }
         return result.data;
       } else {
         console.error("API returned no data:", result);
@@ -107,11 +126,86 @@ export default function Payment() {
         throw new Error("No user logged in");
       }
 
+      // Debug logging - log the entire flight data structure
+      console.log("Full flight data structure:", JSON.stringify(flightData, null, 2));
+      
+      // Log segments
+      if (flightData.segments && flightData.segments.length > 0) {
+        console.log("First segment:", JSON.stringify(flightData.segments[0], null, 2));
+        
+        // Log legs
+        if (flightData.segments[0].legs && flightData.segments[0].legs.length > 0) {
+          const leg = flightData.segments[0].legs[0];
+          console.log("First leg:", JSON.stringify(leg, null, 2));
+          
+          // Log carriers data if available
+          if (leg.carriersData && leg.carriersData.length > 0) {
+            console.log("Carriers data:", JSON.stringify(leg.carriersData, null, 2));
+          }
+          
+          // Specifically log all possible airline information paths
+          console.log("Available airline data sources:", {
+            "leg.airlineName": leg.airlineName,
+            "leg.airline": leg.airline,
+            "leg.airlineCode": leg.airlineCode,
+            "leg.carriersData": leg.carriersData,
+            "leg.carriers": leg.carriers,
+            "leg.flightInfo?.carrierInfo": leg.flightInfo?.carrierInfo
+          });
+        }
+      }
+
+      // Extract airline information from carriersData which contains the correct information
+      const leg = flightData.segments?.[0]?.legs?.[0];
+      
+      // First try to get data from carriersData array
+      let airlineName = 'Unknown Airline';
+      let airlineCode = 'N/A';
+      let airlineLogo = '';
+      
+      // Check if carriersData exists and has elements
+      if (leg?.carriersData && leg.carriersData.length > 0) {
+        // Use first carrier in the array (usually the operating carrier)
+        const carrier = leg.carriersData[0];
+        airlineName = carrier.name || 'Unknown Airline';
+        airlineCode = carrier.code || 'N/A';
+        airlineLogo = carrier.logo || '';
+        console.log("Found airline info in carriersData:", carrier);
+      } 
+      // If carriersData doesn't have what we need, fall back to other possible locations
+      else {
+        airlineName = leg?.airlineName || 
+                    leg?.airline?.name ||
+                    leg?.marketingCarrier?.name ||
+                    flightData.segments?.[0]?.airline?.name ||
+                    'Unknown Airline';
+        
+        airlineCode = leg?.airlineCode || 
+                    leg?.airline?.code ||
+                    leg?.marketingCarrier?.code ||
+                    flightData.segments?.[0]?.airline?.code ||
+                    'N/A';
+                        
+        airlineLogo = leg?.airline?.logoUrl || 
+                    leg?.marketingCarrier?.logoUrl ||
+                    flightData.segments?.[0]?.airline?.logoUrl ||
+                    '';
+      }
+
+      // Log the extracted information
+      console.log("Extracted airline information:", {
+        name: airlineName,
+        code: airlineCode,
+        logo: airlineLogo
+      });
+
       const flightBooking = {
         userId: user.uid,
         token: token || '',
         transactionId: flightData.transactionId || '',
-        flightNumber: flightData.segments?.[0]?.legs?.[0]?.flightNumber || 'N/A',
+        flightNumber: flightData.segments?.[0]?.legs?.[0]?.flightNumber || 
+                      flightData.segments?.[0]?.legs?.[0]?.flightInfo?.flightNumber || 
+                      'N/A',
         amount: amount || 0,
         bookingDate: new Date().toISOString(),
         paymentMethod: paymentMethod || 'credit',
@@ -119,11 +213,24 @@ export default function Payment() {
           departure: flightData.segments?.[0]?.departureAirport?.name || 'N/A',
           arrival: flightData.segments?.[0]?.arrivalAirport?.name || 'N/A',
           departureTime: flightData.segments?.[0]?.departureTime || 'N/A',
-          arrivalTime: flightData.segments?.[0]?.arrivalTime || 'N/A'
+          arrivalTime: flightData.segments?.[0]?.arrivalTime || 'N/A',
+          airline: airlineName,
+          airlineCode: airlineCode,
+          airlineLogo: airlineLogo,
+          aircraft: flightData.segments?.[0]?.legs?.[0]?.aircraft || 
+                    flightData.segments?.[0]?.legs?.[0]?.planeType || 
+                    'N/A'
         },
         status: 'confirmed',
         invoiceUrl: flightData.invoiceUrl || '',
+        // Store airline data at top level for easier queries
+        airline: airlineName,
+        airlineCode: airlineCode,
+        airlineLogo: airlineLogo
       };
+
+      // Log the final flight booking object being saved
+      console.log("Final flight booking object:", flightBooking);
 
       if (!flightBooking.token || !flightBooking.transactionId) {
         throw new Error("Missing required booking information");
@@ -149,18 +256,24 @@ export default function Payment() {
     }
 
     try {
+      console.log("Starting payment process...");
       await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      console.log("Fetching flight details with token:", token);
       const details = await fetchFlightDetails();
       if (!details) {
         throw new Error("Failed to fetch flight details");
       }
+      console.log("Successfully fetched flight details:", details);
 
       const newTransactionId = Math.random().toString(36).substr(2, 9);
+      console.log("Generated transaction ID:", newTransactionId);
+      
       const pdfBlob = await generatePDFBlob(details, newTransactionId);
       const storageRef = ref(storage, `invoices/${newTransactionId}.pdf`);
       await uploadBytes(storageRef, pdfBlob);
       const pdfUrl = await getDownloadURL(storageRef);
-
+      
       // Log activity if not already logged in the Flights component
       const flightLogDetails = {
         from: details.segments?.[0]?.departureAirport?.name || 'N/A',
@@ -180,7 +293,6 @@ export default function Payment() {
         transactionId: newTransactionId,
         invoiceUrl: pdfUrl,
       });
-
       setFlightDetails(details);
       setTransactionId(newTransactionId);
       setPaymentSuccess(true);
@@ -227,7 +339,6 @@ export default function Payment() {
             <p className="text-lg font-semibold text-gray-800">Amount: RS. {amount}</p>
             <p className="text-sm text-gray-500">Flight: {flightNumber}</p>
           </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
@@ -240,7 +351,6 @@ export default function Payment() {
                 <option value="debit">Debit Card</option>
               </select>
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Card Number</label>
               <input
@@ -253,7 +363,6 @@ export default function Payment() {
                 required
               />
             </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Expiry Date</label>
@@ -280,7 +389,6 @@ export default function Payment() {
                 />
               </div>
             </div>
-
             <button
               type="submit"
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all"

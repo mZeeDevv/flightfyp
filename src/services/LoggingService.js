@@ -4,9 +4,9 @@ import { getAuth } from "firebase/auth";
 
 /**
  * Logs user activity to Firebase
- * @param {string} action - The action performed (e.g., "booked", "registered")
- * @param {string} activityType - The type of activity ("flight", "hotel", "trip")
- * @param {object} details - Details about the activity
+ * @param {string} action 
+ * @param {string} activityType 
+ * @param {object} details 
  */
 export const logUserActivity = async (action, activityType, details) => {
   try {

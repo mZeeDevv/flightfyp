@@ -42,6 +42,7 @@ import UserTrips from './UsesDashboard/UserTrips';
 import AdminRoute from './Components/AdminRoute';
 import AdminFeedback from "./AdminDashboard/AdminFeedback";
 import SubscriptionsList from "./Components/Admin/SubscriptionsList";
+import AdminReports from "./AdminDashboard/AdminReports";
 
 // Layout Component for User Sidebar
 function SidebarLayout({ children }) {
@@ -209,6 +210,13 @@ function App() {
                   <SubscriptionsList/>
                 </AdminSidebarLayout>
               } />
+              
+              <Route path="/admin/reports" element={
+                <AdminSidebarLayout>
+                  <AdminReports />
+                </AdminSidebarLayout>
+              } />
+              
               <Route path="/admin/settings" element={
                 <AdminSidebarLayout>
                   <div>Admin Settings Page</div>
