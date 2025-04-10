@@ -22,6 +22,7 @@ import Cars from "./Pages/Cars";
 import Taxi from './Pages/Taxi';
 // Admin
 import Admin from "./AdminDashboard/Admin";
+import AdminChat from "./Components/AdminChat"; // Add this import
 // Feedback
 import Feedback from "./Feedback/Feedback";
 // Payment
@@ -214,6 +215,12 @@ function App() {
               <Route path="/admin/reports" element={
                 <AdminSidebarLayout>
                   <AdminReports />
+                </AdminSidebarLayout>
+              } />
+              
+              <Route path="/admin/chat" element={
+                <AdminSidebarLayout>
+                  <AdminChat />
                 </AdminSidebarLayout>
               } />
               

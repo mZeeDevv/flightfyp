@@ -12,10 +12,8 @@ const API_HOST = "booking-com15.p.rapidapi.com";
 
 const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
     const navigate = useNavigate();
-    // Debug props
     const uid = localStorage.getItem("userId");
     
-    // Add state for the sidebar
     const [showFlightDetailsSidebar, setShowFlightDetailsSidebar] = useState(false);
     const [flightDetailsToken, setFlightDetailsToken] = useState(null);
     const [flightDetailsData, setFlightDetailsData] = useState(null);
@@ -25,14 +23,12 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
     useEffect(() => {
     }, [searchResults]);
 
-    // Don't render if no search results
     if (!searchResults) {
         return null;
     }
 
-    const { fromId, toId, departureDate, returnDate, cabinClass, budget, daysOfStay } = searchResults;
+    const { fromId, toId, departureDate, returnDate, cabinClass, budget, hotelBudget, daysOfStay } = searchResults;
 
-    // Validate required props
     if (!fromId || !toId || !departureDate) {
         return (
             <div className="text-center text-red-500 p-4">
@@ -46,7 +42,6 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
-    // State for selected items
     const [selectedFlightId, setSelectedFlightId] = useState(null);
     const [selectedHotelId, setSelectedHotelId] = useState(null);
     const [selectedFlight, setSelectedFlight] = useState(null);
@@ -56,7 +51,6 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         hotel: 0
     });
 
-    // Click handlers
     const handleFlightClick = (token, price, flightData) => {
         setSelectedFlightId(token);
         setSelectedFlight(flightData);
@@ -77,7 +71,6 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         onHotelSelect(hotelId, price);
     };
 
-    // Fetch flights
     const fetchFlights = async () => {
         if (!fromId || !toId || !departureDate) {
             toast.error("Missing required search parameters for flights.");
@@ -106,29 +99,31 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
             if (result.status === true && result.data?.flightOffers?.length > 0) {
                 console.log(`Found ${result.data.flightOffers.length} total flights before filtering`);
                 
-                // Filter flights based on budget, but be more lenient
                 const filteredFlights = result.data.flightOffers.filter((flight) => {
                     const price = flight.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || Infinity;
-                    console.log(`Flight price: ${price}, Budget: ${budget}, Included: ${price <= budget * 1.5}`);
-                    // Be more lenient with the budget - allowing up to 50% more
-                    return price <= budget * 1.5;
+                    console.log(`Flight price: ${price}, Budget: ${budget}, Included: ${price <= budget}`);
+                    return price <= budget;
                 });
 
                 console.log(`After filtering: ${filteredFlights.length} flights remain`);
-                setFlightOffers(filteredFlights);
                 
                 if (filteredFlights.length === 0) {
-                    // If no flights after strict filtering, add some flights anyway
+                    toast.warn("No flights found within your budget. Please consider increasing your budget.");
+                    setError("No flights available within your budget of RS. " + budget);
+                    setFlightOffers([]);
+                    
                     const sortedByPrice = [...result.data.flightOffers].sort((a, b) => {
                         const priceA = a.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || Infinity;
                         const priceB = b.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || Infinity;
                         return priceA - priceB;
                     });
                     
-                    // Take the 5 cheapest flights
-                    const cheapestFlights = sortedByPrice.slice(0, 5);
-                    console.log("Showing 5 cheapest flights instead");
-                    setFlightOffers(cheapestFlights);
+                    if (sortedByPrice.length > 0) {
+                        const cheapestPrice = sortedByPrice[0].travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units;
+                        toast.info(`The cheapest available flight costs RS. ${cheapestPrice}`);
+                    }
+                } else {
+                    setFlightOffers(filteredFlights);
                 }
             } else {
                 console.log("No flight deals found in API response");
@@ -141,7 +136,6 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         }
     };
 
-    // Fetch hotels
     const fetchHotels = async () => {
         if (!toId || !departureDate) {
             setError("Missing required search parameters for hotels.");
@@ -149,33 +143,38 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         }
 
         let destId = toId;
+        console.log("Original toId value:", toId);
+        
         try {
-            const searchDestinationUrl = `https://${API_HOST}/api/v1/hotels/searchDestination?query=${toId}`;
-            console.log("Searching for destination ID with URL:", searchDestinationUrl);
-            
-            const searchDestinationOptions = {
-                method: "GET",
-                headers: {
-                    "x-rapidapi-key": RAPIDAPI_KEY,
-                    "x-rapidapi-host": API_HOST,
-                },
-            };
-
-            const searchResponse = await fetch(searchDestinationUrl, searchDestinationOptions);
-            const searchResult = await searchResponse.json();
-            console.log("Destination search result:", searchResult);
-
-            if (searchResult.status === true && searchResult.data?.length > 0) {
-                destId = searchResult.data[0].dest_id;
-                console.log(`Found destination ID: ${destId}`);
+            if (toId === "Islamabad International Airport" || toId === "ISB.AIRPORT") {
+                destId = "1068102";
+                console.log("Special case: Using specific destination ID for Islamabad:", destId);
             } else {
-                console.log("No destination found. Using original toId as destId");
-                // Try using the original toId as a fallback
-                destId = toId;
+                const searchDestinationUrl = `https://${API_HOST}/api/v1/hotels/searchDestination?query=${toId}`;
+                console.log("Searching for destination ID with URL:", searchDestinationUrl);
+                
+                const searchDestinationOptions = {
+                    method: "GET",
+                    headers: {
+                        "x-rapidapi-key": RAPIDAPI_KEY,
+                        "x-rapidapi-host": API_HOST,
+                    },
+                };
+
+                const searchResponse = await fetch(searchDestinationUrl, searchDestinationOptions);
+                const searchResult = await searchResponse.json();
+                console.log("Destination search result:", searchResult);
+
+                if (searchResult.status === true && searchResult.data?.length > 0) {
+                    destId = searchResult.data[0].dest_id;
+                    console.log(`Found destination ID: ${destId}`);
+                } else {
+                    console.log("No destination found. Using original toId as destId");
+                    destId = toId;
+                }
             }
         } catch (error) {
             console.error("Error finding destination ID:", error);
-            // Continue with the original toId
             console.log("Using original toId as destId due to error");
         }
         
@@ -202,11 +201,11 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
             destId,
             arrivalDate,
             departureDateForHotels,
-            daysOfStay
+            daysOfStay,
+            hotelBudget
         });
 
-        // Step 3: Fetch hotels using the retrieved dest_id
-        const url = `https://${API_HOST}/api/v1/hotels/searchHotels?dest_id=${destId}&search_type=CITY&arrival_date=${arrivalDate}&departure_date=${departureDateForHotels}&adults=1&room_qty=1&currency_code=INR`;
+        const url = `https://${API_HOST}/api/v1/hotels/searchHotels?dest_id=${destId}&search_type=HOTEL&arrival_date=${arrivalDate}&departure_date=${departureDateForHotels}&adults=1&room_qty=1&currency_code=INR&units=metric&languagecode=en-us`;
         console.log("Fetching hotels with URL:", url);
         
         const options = {
@@ -225,36 +224,39 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
             if (result.status === true && result.data?.hotels?.length > 0) {
                 console.log(`Found ${result.data.hotels.length} total hotels before filtering`);
                 
-                // Filter hotels based on budget, but be more lenient
                 const filteredHotels = result.data.hotels.filter((hotel) => {
                     const pricePerNight = hotel.property?.priceBreakdown?.grossPrice?.value || Infinity;
                     const totalPrice = pricePerNight * (daysOfStay || 1);
-                    console.log(`Hotel: ${hotel.property?.name}, Price per night: ${pricePerNight}, Total for ${daysOfStay} nights: ${totalPrice}, Budget: ${budget}, Included: ${totalPrice <= budget * 1.5}`);
+                    console.log(`Hotel: ${hotel.property?.name}, Price per night: ${pricePerNight}, Total for ${daysOfStay} nights: ${totalPrice}, Hotel Budget: ${hotelBudget}, Included: ${totalPrice <= hotelBudget}`);
                     
-                    // Be more lenient with the budget - allowing up to 50% more
-                    return totalPrice <= budget * 1.5;
+                    return totalPrice <= hotelBudget;
                 });
 
                 console.log(`After filtering: ${filteredHotels.length} hotels remain`);
-                setHotelOffers(filteredHotels);
                 
                 if (filteredHotels.length === 0) {
-                    // If no hotels after strict filtering, add some hotels anyway
+                    toast.warn("No hotels found within your budget. Please consider increasing your hotel budget.");
+                    setError("No hotels available within your budget of RS. " + hotelBudget + " for " + daysOfStay + " nights.");
+                    setHotelOffers([]);
+                    
                     const sortedByPrice = [...result.data.hotels].sort((a, b) => {
                         const priceA = a.property?.priceBreakdown?.grossPrice?.value || Infinity;
                         const priceB = b.property?.priceBreakdown?.grossPrice?.value || Infinity;
                         return priceA - priceB;
                     });
                     
-                    // Take the 5 cheapest hotels
-                    const cheapestHotels = sortedByPrice.slice(0, 5);
-                    console.log("Showing 5 cheapest hotels instead");
-                    setHotelOffers(cheapestHotels);
+                    if (sortedByPrice.length > 0) {
+                        const cheapestPricePerNight = sortedByPrice[0].property?.priceBreakdown?.grossPrice?.value;
+                        const totalCheapestPrice = cheapestPricePerNight * (daysOfStay || 1);
+                        toast.info(`The cheapest available hotel costs RS. ${Math.floor(cheapestPricePerNight)} per night (Total: RS. ${Math.floor(totalCheapestPrice)} for ${daysOfStay} nights)`);
+                    }
+                } else {
+                    setHotelOffers(filteredHotels);
                 }
             } else {
                 console.log("No hotel deals found in API response");
                 setError("No hotel deals found.");
-                toast.warn("No hotel deals found within your budget.");
+                toast.warn("No hotel deals found for your destination.");
                 setHotelOffers([]);
             }
         } catch (error) {
@@ -263,7 +265,6 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         }
     };
 
-    // Fetch data on component mount
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
@@ -281,27 +282,29 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         setSelectedFlight(null); 
         setSelectedHotel(null); 
         setTotalSelectedPrice({ flight: 0, hotel: 0 });
-    }, [fromId, toId, departureDate, returnDate, cabinClass, budget, daysOfStay]);
+    }, [fromId, toId, departureDate, returnDate, cabinClass, budget, hotelBudget, daysOfStay]);
 
-    // Function to generate Google Maps link
     const getGoogleMapsLink = (latitude, longitude) => {
         return `https://www.google.com/maps?q=${latitude},${longitude}`;
     };
 
-    // Calculate savings
     const calculateSavings = () => {
         const totalHotelPrice = totalSelectedPrice.hotel * (daysOfStay || 1);
         const totalSpent = totalSelectedPrice.flight + totalHotelPrice;
-        let savings = budget - totalSpent;
+        
+        const totalBudget = parseInt(budget) + parseInt(hotelBudget);
+        
+        let savings = totalBudget - totalSpent;
         savings = Math.max(0, savings);
-        const savingsPercentage = ((savings / budget) * 100).toFixed(1);
+        const savingsPercentage = totalBudget > 0 ? ((savings / totalBudget) * 100).toFixed(1) : "0.0";
+        
         return {
             amount: savings,
-            percentage: savingsPercentage
+            percentage: savingsPercentage,
+            totalBudget: totalBudget
         };
     };
 
-    // Handle adding to favorites
     const handleAddToFavorites = async () => {
         if (!selectedFlight || !selectedHotel) {
             toast.error("Please select both a flight and a hotel.");
@@ -309,7 +312,6 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         }
     
         try {
-            // Calculate the total hotel price based on days of stay
             const hotelPricePerDay = totalSelectedPrice.hotel || 0;
             const totalHotelPrice = hotelPricePerDay * (daysOfStay || 1);
             
@@ -339,7 +341,6 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
     
             console.log("Saving trip to favorites:", favTripData);
             
-            // Save the trip data to Firebase
             const docRef = await addDoc(collection(db, "user_fav_trips"), favTripData);
             toast.success("Trip added to favorites!");
             navigate("/my-fav-trips");
@@ -349,15 +350,13 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         }
     };
 
-    // Function to handle viewing flight details
     const handleViewFlightDetails = (event, token) => {
-        event.stopPropagation(); // Prevent triggering the parent onClick
+        event.stopPropagation();
         setFlightDetailsToken(token);
         setShowFlightDetailsSidebar(true);
         fetchFlightDetails(token);
     };
     
-    // Function to fetch flight details
     const fetchFlightDetails = async (token) => {
         if (!token) return;
         
@@ -392,272 +391,389 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         }
     };
     
-    // Function to close the sidebar
     const closeFlightDetailsSidebar = () => {
         setShowFlightDetailsSidebar(false);
     };
     
     return (
-        <div className="container mx-auto px-4 py-8 bg-black bg-opacity-90 min-h-screen">
-            <h1 className="text-4xl font-bold mb-8 text-center text-white bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
-                Available Packages Within Budget
-            </h1>
-        
-            {error && (
-                <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg">
-                    {error}
+        <div className="min-h-screen bg-cover bg-center bg-fixed" style={{ backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), url("https://images.unsplash.com/photo-1436491865332-7a61a109cc05?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80")' }}>
+            <div className="container mx-auto px-4 py-8">
+                <div className="bg-gray-900 bg-opacity-80 backdrop-filter backdrop-blur-sm rounded-xl p-6 mb-8 border border-gray-800">
+                    <h1 className="text-4xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 pb-2">
+                        Discover Your Perfect Package
+                    </h1>
+                    <p className="text-center text-gray-400 max-w-2xl mx-auto">
+                        We've curated the best flight and hotel combinations within your budget. Select your preferred options to continue.
+                    </p>
                 </div>
-            )}
         
-            {loading ? (
-                <div className="flex justify-center items-center h-64">
-                    <Spinner />
-                </div>
-            ) : (
-                <>
-                    {/* Flight Offers Section */}
-                    {flightOffers.length > 0 ? (
-                        <div className="mb-12">
-                            <h2 className="text-3xl font-semibold mb-6 text-white">Flight Offers</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                                {flightOffers.map((deal) => {
-                                    const departureAirport = deal.segments?.[0]?.departureAirport;
-                                    const arrivalAirport = deal.segments?.[0]?.arrivalAirport;
-                                    const departureTime = deal.segments?.[0]?.departureTime || "N/A";
-                                    const arrivalTime = deal.segments?.[0]?.arrivalTime || "N/A";
-                                    const price = deal.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || "N/A";
-                                    const token = deal.token;
+                {error && (
+                    <div className="mb-6 p-4 bg-red-900 bg-opacity-60 border-l-4 border-red-500 text-red-100 rounded-lg">
+                        <p className="flex items-center">
+                            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"></path>
+                            </svg>
+                            {error}
+                        </p>
+                    </div>
+                )}
         
-                                    return (
+                {loading ? (
+                    <div className="flex flex-col justify-center items-center h-96">
+                        <Spinner />
+                        <p className="mt-4 text-blue-400 animate-pulse">Finding the best packages for you...</p>
+                    </div>
+                ) : (
+                    <>
+                        {flightOffers.length > 0 ? (
+                            <div className="mb-12">
+                                <div className="flex flex-wrap justify-between items-center mb-6">
+                                    <h2 className="text-3xl font-bold text-white">
+                                        <span className="border-b-2 border-blue-500 pb-1">Flight Options</span>
+                                    </h2>
+                                    <div className="flex space-x-2 mt-2 sm:mt-0">
+                                        <div className="bg-blue-900 bg-opacity-50 px-4 py-1.5 rounded-full">
+                                            <span className="text-sm font-semibold text-blue-200">Budget: </span>
+                                            <span className="text-sm font-bold text-white">RS. {budget}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                                    {flightOffers.map((deal) => {
+                                        const departureAirport = deal.segments?.[0]?.departureAirport;
+                                        const arrivalAirport = deal.segments?.[0]?.arrivalAirport;
+                                        const departureTime = deal.segments?.[0]?.departureTime || "N/A";
+                                        const arrivalTime = deal.segments?.[0]?.arrivalTime || "N/A";
+                                        const price = deal.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || "N/A";
+                                        const token = deal.token;
+            
+                                        return (
+                                            <div
+                                                key={token}
+                                                className={`bg-gradient-to-b from-gray-800 to-gray-900 p-4 rounded-xl shadow-lg hover:shadow-blue-900/20 transition-all duration-300 cursor-pointer relative overflow-hidden
+                                                    ${selectedFlightId === token ? 'ring-2 ring-blue-500 shadow-blue-500/30 transform scale-[1.02]' : ''}
+                                                `}
+                                                onClick={() => handleFlightClick(token, price, deal)}
+                                            >
+                                                {selectedFlightId === token && (
+                                                    <div className="absolute -top-1 -right-1">
+                                                        <div className="bg-blue-500 text-white p-2 rounded-bl-lg shadow-lg">
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                <div className="border-b border-gray-700 pb-3 mb-3">
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <div>
+                                                            <h3 className="text-sm font-semibold text-gray-300">Departure</h3>
+                                                            <p className="text-xs text-gray-400 truncate">
+                                                                {departureAirport?.name || "Unknown Airport"}
+                                                            </p>
+                                                            <p className="text-xs text-blue-400 truncate">
+                                                                {departureAirport?.countryName || "Unknown Country"}
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex flex-col items-center justify-center">
+                                                            <div className="relative w-full flex items-center justify-center">
+                                                                <div className="border-t border-dashed border-gray-600 w-full absolute"></div>
+                                                                <div className="bg-blue-500 text-white p-1 rounded-full z-10 transform -translate-y-1/2">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                                                        <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11h2v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                                                                    </svg>
+                                                                </div>
+                                                            </div>
+                                                            <span className="text-xs text-blue-400 font-medium mt-2">One-way</span>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <h3 className="text-sm font-semibold text-gray-300">Arrival</h3>
+                                                            <p className="text-xs text-gray-400 truncate">
+                                                                {arrivalAirport?.name || "Unknown Airport"}
+                                                            </p>
+                                                            <p className="text-xs text-blue-400 truncate">
+                                                                {arrivalAirport?.countryName || "Unknown Country"}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex justify-between text-gray-400 mb-3">
+                                                    <div>
+                                                        <p className="text-xs font-medium">Departure</p>
+                                                        <p className="text-xs">{departureTime}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-xs font-medium">Arrival</p>
+                                                        <p className="text-xs">{arrivalTime}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="bg-gray-700 p-2 rounded-lg mb-3 shadow-inner">
+                                                    <div className="flex justify-between items-center">
+                                                        <p className="text-xs text-gray-300 font-semibold">Price:</p>
+                                                        <p className="text-sm font-bold text-blue-400">RS. {price}</p>
+                                                    </div>
+                                                </div>
+                                                <button 
+                                                    className="w-full bg-blue-600 text-white py-1.5 rounded-lg hover:bg-blue-700 transition-all text-xs font-medium flex items-center justify-center"
+                                                    onClick={(e) => handleViewFlightDetails(e, token)}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                                        <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                                                    </svg>
+                                                    View Details
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="mb-12 bg-gray-900 bg-opacity-70 border border-gray-800 rounded-lg p-6">
+                                <div className="flex flex-col items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <h3 className="text-xl font-semibold text-gray-300 mb-2">No Flight Options Available</h3>
+                                    <p className="text-gray-400 text-center">No flight offers found within your budget of RS. {budget}</p>
+                                    <p className="text-gray-500 text-sm mt-2">Try increasing your flight budget for more options</p>
+                                </div>
+                            </div>
+                        )}
+            
+                        {hotelOffers.length > 0 ? (
+                            <div className="mb-12">
+                                <div className="flex flex-wrap justify-between items-center mb-6">
+                                    <h2 className="text-3xl font-bold text-white">
+                                        <span className="border-b-2 border-purple-500 pb-1">Hotel Options</span>
+                                    </h2>
+                                    <div className="flex space-x-2 mt-2 sm:mt-0">
+                                        <div className="bg-purple-900 bg-opacity-50 px-4 py-1.5 rounded-full flex items-center">
+                                            <span className="text-sm font-semibold text-purple-200">Budget: </span>
+                                            <span className="text-sm font-bold text-white ml-1">RS. {hotelBudget}</span>
+                                        </div>
+                                        <div className="bg-purple-900 bg-opacity-50 px-4 py-1.5 rounded-full">
+                                            <span className="text-sm font-semibold text-purple-200">Stay: </span>
+                                            <span className="text-sm font-bold text-white">{daysOfStay || 1} {daysOfStay === 1 ? 'night' : 'nights'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                                    {hotelOffers.map((hotel) => (
                                         <div
-                                            key={token}
-                                            className={`bg-gray-800 p-4 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer relative
-                                                ${selectedFlightId === token ? 'ring-2 ring-blue-500 transform scale-[1.02]' : ''}
+                                            key={hotel.hotel_id}
+                                            className={`bg-gradient-to-b from-gray-800 to-gray-900 rounded-xl shadow-lg overflow-hidden relative cursor-pointer hover:shadow-purple-900/20 transition-all duration-300
+                                                ${selectedHotelId === hotel.hotel_id ? 'ring-2 ring-purple-500 shadow-purple-500/30 transform scale-[1.02]' : ''}
                                             `}
-                                            onClick={() => handleFlightClick(token, price, deal)}
+                                            onClick={() => handleHotelClick(hotel.hotel_id, hotel.property.priceBreakdown.grossPrice.value, hotel)}
                                         >
-                                            {selectedFlightId === token && (
-                                                <div className="absolute top-2 right-2">
-                                                    <div className="bg-blue-500 text-white p-1 rounded-full">
+                                            {selectedHotelId === hotel.hotel_id && (
+                                                <div className="absolute -top-1 -right-1 z-10">
+                                                    <div className="bg-purple-500 text-white p-2 rounded-bl-lg shadow-lg">
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                                                         </svg>
                                                     </div>
                                                 </div>
                                             )}
-                                            <div className="border-b border-gray-700 pb-2 mb-2">
-                                                <div className="grid grid-cols-3 gap-2">
-                                                    <div>
-                                                        <h3 className="text-sm font-semibold text-gray-300">Departure</h3>
-                                                        <p className="text-xs text-gray-400">
-                                                            {departureAirport?.name || "Unknown Airport"}, {departureAirport?.countryName || "Unknown Country"}
-                                                        </p>
+                                            <div className="relative">
+                                                <img
+                                                    src={hotel.property.photoUrls[0]}
+                                                    alt={hotel.property.name}
+                                                    className="w-full h-36 object-cover"
+                                                />
+                                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent h-12"></div>
+                                            </div>
+                                            <div className="p-3">
+                                                <h3 className="text-sm font-bold mb-1 text-white truncate">{hotel.property.name}</h3>
+                                                <div className="flex items-center mb-2">
+                                                    <div className="flex items-center bg-yellow-900 bg-opacity-40 px-2 py-0.5 rounded-full">
+                                                        <FaStar className="text-yellow-400 mr-1" size={12} />
+                                                        <span className="text-xs text-yellow-100 font-medium">
+                                                            {hotel.property.reviewScore} 
+                                                        </span>
                                                     </div>
-                                                    <div className="text-center">
-                                                        <span className="text-xs text-blue-400 font-medium">One-way</span>
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="text-sm font-semibold text-gray-300">Arrival</h3>
-                                                        <p className="text-xs text-gray-400">
-                                                            {arrivalAirport?.name || "Unknown Airport"}, {arrivalAirport?.countryName || "Unknown Country"}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="flex justify-between text-gray-400 mb-2">
-                                                <div>
-                                                    <p className="text-xs font-medium">Departure Time</p>
-                                                    <p className="text-xs">{departureTime}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs font-medium">Arrival Time</p>
-                                                    <p className="text-xs">{arrivalTime}</p>
-                                                </div>
-                                            </div>
-                                            <div className="bg-gray-700 p-2 rounded-lg mb-2">
-                                                <p className="text-xs text-gray-300 font-semibold">Total Price:</p>
-                                                <p className="text-sm font-bold text-blue-400">RS. {price}</p>
-                                            </div>
-                                            <div className="flex justify-between mt-2">
-                                                <button 
-                                                    className="w-full bg-blue-600 text-white py-1 rounded-lg hover:bg-blue-700 transition-all text-xs mr-1"
-                                                    onClick={(e) => handleViewFlightDetails(e, token)}
-                                                >
-                                                    View Details
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="text-center text-gray-400 mb-8">
-                            No flight offers available within your budget
-                        </div>
-                    )}
-        
-                    {/* Hotel Offers Section */}
-                    {hotelOffers.length > 0 ? (
-                        <div className="mb-12">
-                            <h2 className="text-3xl font-semibold mb-6 text-white">
-                                Hotel Offers ({daysOfStay || 1} {daysOfStay === 1 ? 'night' : 'nights'} stay)
-                            </h2>
-                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                                {hotelOffers.map((hotel) => (
-                                    <div
-                                        key={hotel.hotel_id}
-                                        className={`bg-gray-800 rounded-xl shadow-lg overflow-hidden relative cursor-pointer
-                                            ${selectedHotelId === hotel.hotel_id ? 'ring-2 ring-blue-500 transform scale-[1.02]' : ''}
-                                        `}
-                                        onClick={() => handleHotelClick(hotel.hotel_id, hotel.property.priceBreakdown.grossPrice.value, hotel)}
-                                    >
-                                        {selectedHotelId === hotel.hotel_id && (
-                                            <div className="absolute top-2 right-2 z-10">
-                                                <div className="bg-blue-500 text-white p-1 rounded-full">
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                                    </svg>
-                                                </div>
-                                            </div>
-                                        )}
-                                        <img
-                                            src={hotel.property.photoUrls[0]}
-                                            alt={hotel.property.name}
-                                            className="w-full h-36 object-cover"
-                                        />
-                                        <div className="p-2">
-                                            <h3 className="text-sm font-bold mb-1 text-white">{hotel.property.name}</h3>
-                                            <div className="flex items-center mb-1">
-                                                <FaStar className="text-yellow-400 mr-1" />
-                                                <span className="text-xs text-gray-300">
-                                                    {hotel.property.reviewScore} ({hotel.property.reviewCount} reviews)
-                                                </span>
-                                            </div>
-                                            <div className="text-xs text-gray-300 mb-1">
-                                                <div className="flex justify-between items-center">
-                                                    <span>Price per night:</span>
-                                                    <span className="font-semibold">RS. {Math.floor(hotel.property.priceBreakdown.grossPrice.value)}</span>
-                                                </div>
-                                                <div className="flex justify-between items-center bg-gray-700 p-1 mt-1 rounded-md">
-                                                    <span>Total for {daysOfStay || 1} nights:</span>
-                                                    <span className="font-bold text-blue-400">
-                                                        RS. {Math.floor(hotel.property.priceBreakdown.grossPrice.value) * (daysOfStay || 1)}
+                                                    <span className="text-xs text-gray-400 ml-2">
+                                                        ({hotel.property.reviewCount} reviews)
                                                     </span>
                                                 </div>
+                                                <div className="text-xs text-gray-300 mb-2">
+                                                    <div className="flex justify-between items-center">
+                                                        <span>Price per night:</span>
+                                                        <span className="font-semibold text-white">RS. {Math.floor(hotel.property.priceBreakdown.grossPrice.value)}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center bg-gray-700 p-2 mt-2 rounded-lg shadow-inner">
+                                                        <span>Total ({daysOfStay || 1} nights):</span>
+                                                        <span className="font-bold text-purple-400">
+                                                            RS. {Math.floor(hotel.property.priceBreakdown.grossPrice.value) * (daysOfStay || 1)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex justify-between items-center mt-3">
+                                                    <a
+                                                        href={getGoogleMapsLink(hotel.property.latitude, hotel.property.longitude)}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs text-blue-400 hover:underline flex items-center"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                                                        </svg>
+                                                        Map
+                                                    </a>
+                                                    <button className="bg-purple-600 text-white py-1 px-3 rounded-lg hover:bg-purple-700 transition-all text-xs font-medium">
+                                                        View Details
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <a
-                                                href={getGoogleMapsLink(hotel.property.latitude, hotel.property.longitude)}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-xs text-blue-400 hover:underline"
-                                            >
-                                                View on Google Maps
-                                            </a>
-                                            <button className="w-full bg-blue-600 text-white py-1 rounded-lg hover:bg-blue-700 transition-all mt-2 text-xs">
-                                                View Details
-                                            </button>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="mb-12 bg-gray-900 bg-opacity-70 border border-gray-800 rounded-lg p-6">
+                                <div className="flex flex-col items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <h3 className="text-xl font-semibold text-gray-300 mb-2">No Hotel Options Available</h3>
+                                    <p className="text-gray-400 text-center">No hotel offers found within your budget of RS. {hotelBudget} for {daysOfStay || 1} night(s)</p>
+                                    <p className="text-gray-500 text-sm mt-2">Try increasing your hotel budget for more options</p>
+                                </div>
+                            </div>
+                        )}
+            
+                        {!flightOffers.length && !hotelOffers.length && !loading && !error && (
+                            <div className="flex flex-col items-center justify-center p-10 bg-gray-900 bg-opacity-70 rounded-xl border border-gray-800">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <h3 className="text-2xl font-bold text-gray-300 mb-2">No Matching Packages Found</h3>
+                                <p className="text-gray-400 text-center max-w-lg">
+                                    We couldn't find any flight and hotel combinations that match your criteria. 
+                                    Please try adjusting your budget or dates for better results.
+                                </p>
+                                <button 
+                                    className="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-all duration-300"
+                                    onClick={() => navigate(-1)}
+                                >
+                                    Return to Trip Planner
+                                </button>
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+        
+            <div className="fixed bottom-0 left-0 w-full bg-gradient-to-r from-gray-900 to-black bg-opacity-95 shadow-lg py-3 border-t border-gray-800">
+                <div className="max-w-7xl mx-auto px-4">
+                    <div className="flex flex-col md:flex-row md:justify-between md:items-center">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 md:mb-0">
+                            <div className="bg-gray-800 p-2 rounded-lg">
+                                <div className="grid grid-cols-2 gap-x-4">
+                                    <p className="text-xs text-gray-400">Flight Budget:</p>
+                                    <p className="text-xs font-bold text-white text-right">RS. {budget}</p>
+                                
+                                    <p className="text-xs text-gray-400">Selected Price:</p>
+                                    <p className="text-xs font-bold text-blue-400 text-right">
+                                        RS. {totalSelectedPrice.flight || "0"}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-gray-800 p-2 rounded-lg">
+                                <div className="grid grid-cols-2 gap-x-4">
+                                    <p className="text-xs text-gray-400">Hotel Budget:</p>
+                                    <p className="text-xs font-bold text-white text-right">RS. {hotelBudget}</p>
+                                    
+                                    <p className="text-xs text-gray-400">Selected Hotel:</p>
+                                    <p className="text-xs font-bold text-purple-400 text-right">
+                                        RS. {totalSelectedPrice.hotel * (daysOfStay || 1) || "0"}
+                                        <span className="text-gray-500 text-xs"> ({daysOfStay || 1} nights)</span>
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-gray-800 p-2 rounded-lg">
+                                <div className="grid grid-cols-2 gap-x-4">
+                                    <p className="text-xs text-gray-400">Total Budget:</p>
+                                    <p className="text-xs font-bold text-white text-right">RS. {calculateSavings().totalBudget}</p>
+                                    
+                                    <p className="text-xs text-gray-400">Total Savings:</p>
+                                    <p className="text-xs font-bold text-green-400 text-right">
+                                        RS. {calculateSavings().amount} ({calculateSavings().percentage}%)
+                                    </p>
+                                </div>
                             </div>
                         </div>
-                    ) : (
-                        <div className="text-center text-gray-400 mb-8">
-                            No hotel offers available within your budget
-                        </div>
-                    )}
-        
-                    {/* No Results Message */}
-                    {!flightOffers.length && !hotelOffers.length && !loading && !error && (
-                        <div className="text-center text-gray-400">
-                            No packages found matching your criteria. Try adjusting your budget or dates.
-                        </div>
-                    )}
-                </>
-            )}
-        
-            {/* Sticky Footer */}
-            <div className="fixed bottom-0 left-0 w-full bg-gray-900 bg-opacity-95 shadow-lg p-4 border-t border-gray-800">
-                <div className="max-w-7xl mx-auto flex justify-between items-center">
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-1">
-                        <p className="text-xs text-gray-300">Total Budget: <span className="font-bold text-white">RS. {budget}</span></p>
-                        <p className="text-xs text-gray-300">Selected Flight: <span className="font-bold text-blue-400">RS. {totalSelectedPrice.flight}</span></p>
-                        <p className="text-xs text-gray-300">
-                            Selected Hotel: 
-                            <span className="font-bold text-blue-400">
-                                RS. {totalSelectedPrice.hotel} × {daysOfStay || 1} {daysOfStay === 1 ? 'night' : 'nights'} = 
-                                <span className="text-green-400"> RS. {totalSelectedPrice.hotel * (daysOfStay || 1)}</span>
-                            </span>
-                        </p>
-                        <p className="text-xs text-green-400">
-                            Savings: <span className="font-bold">RS. {calculateSavings().amount}</span>
-                            <span className="text-xs ml-1">({calculateSavings().percentage}%)</span>
-                        </p>
-                    </div>
-                    <div className="flex space-x-2">
-                        <button
-                            onClick={handleAddToFavorites}
-                            disabled={!selectedFlightId || !selectedHotelId}
-                            className={`px-4 py-1 rounded-lg transition-all duration-300 text-xs
-                                ${(!selectedFlightId || !selectedHotelId)
-                                    ? 'bg-gray-600 cursor-not-allowed text-gray-400'
-                                    : 'bg-green-600 hover:bg-green-700 text-white'
-                                }`}
-                        >
-                            Add to Favorites
-                        </button>
                         
-                        {selectedFlight && selectedHotel && (
-                            <BookTrip 
-                                tripData={{
-                                    flight: {
-                                        token: selectedFlight.token || '',
-                                        transactionId: selectedFlight.transactionId || '',
-                                        flightNumber: selectedFlight.segments?.[0]?.legs?.[0]?.flightNumber || 'N/A',
-                                        amount: totalSelectedPrice.flight || 0,
-                                        departure: selectedFlight.segments?.[0]?.departureAirport?.name || 'N/A',
-                                        arrival: selectedFlight.segments?.[0]?.arrivalAirport?.name || 'N/A',
-                                        departureTime: selectedFlight.segments?.[0]?.departureTime || 'N/A',
-                                        arrivalTime: selectedFlight.segments?.[0]?.arrivalTime || 'N/A',
-                                    },
-                                    hotel: {
-                                        id: selectedHotel.hotel_id || '',
-                                        name: selectedHotel.property?.name || 'N/A',
-                                        location: selectedHotel.property?.address || 'N/A',
-                                        pricePerDay: totalSelectedPrice.hotel || 0,
-                                        totalPrice: (totalSelectedPrice.hotel || 0) * (daysOfStay || 1),
-                                        daysOfStay: daysOfStay || 1,
-                                        rating: selectedHotel.property?.reviewScore || 'N/A',
-                                    }
-                                }}
-                                buttonLabel="Proceed to Book"
-                                buttonClassName={`px-4 py-1 rounded-lg transition-all duration-300 text-xs
+                        <div className="flex space-x-3">
+                            <button
+                                onClick={handleAddToFavorites}
+                                disabled={!selectedFlightId || !selectedHotelId}
+                                className={`px-4 py-2 rounded-lg transition-all duration-300 text-xs font-medium flex items-center
                                     ${(!selectedFlightId || !selectedHotelId)
-                                        ? 'bg-gray-600 cursor-not-allowed text-gray-400'
-                                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                        ? 'bg-gray-700 cursor-not-allowed text-gray-400'
+                                        : 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg'
                                     }`}
-                                onSuccess={() => navigate('/dashboard')}
-                            />
-                        )}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                                </svg>
+                                Add to Favorites
+                            </button>
+                            
+                            {selectedFlight && selectedHotel && (
+                                <BookTrip 
+                                    tripData={{
+                                        flight: {
+                                            token: selectedFlight.token || '',
+                                            transactionId: selectedFlight.transactionId || '',
+                                            flightNumber: selectedFlight.segments?.[0]?.legs?.[0]?.flightNumber || 'N/A',
+                                            amount: totalSelectedPrice.flight || 0,
+                                            departure: selectedFlight.segments?.[0]?.departureAirport?.name || 'N/A',
+                                            arrival: selectedFlight.segments?.[0]?.arrivalAirport?.name || 'N/A',
+                                            departureTime: selectedFlight.segments?.[0]?.departureTime || 'N/A',
+                                            arrivalTime: selectedFlight.segments?.[0]?.arrivalTime || 'N/A',
+                                        },
+                                        hotel: {
+                                            id: selectedHotel.hotel_id || '',
+                                            name: selectedHotel.property?.name || 'N/A',
+                                            location: selectedHotel.property?.address || 'N/A',
+                                            pricePerDay: totalSelectedPrice.hotel || 0,
+                                            totalPrice: (totalSelectedPrice.hotel || 0) * (daysOfStay || 1),
+                                            daysOfStay: daysOfStay || 1,
+                                            rating: selectedHotel.property?.reviewScore || 'N/A',
+                                        }
+                                    }}
+                                    buttonLabel={
+                                        <span className="flex items-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                            </svg>
+                                            Book This Package
+                                        </span>
+                                    }
+                                    buttonClassName="px-4 py-2 rounded-lg transition-all duration-300 text-xs font-medium bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
+                                    onSuccess={() => navigate('/dashboard')}
+                                />
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
         
-            {/* Flight Details Sidebar */}
             {showFlightDetailsSidebar && (
                 <div className="fixed inset-0 z-50 overflow-hidden">
-                    {/* Overlay */}
                     <div 
                         className="absolute inset-0 bg-black bg-opacity-50"
                         onClick={closeFlightDetailsSidebar}
                     ></div>
                     
-                    {/* Sidebar */}
                     <div className="absolute inset-y-0 right-0 max-w-full flex">
                         <div className="relative w-screen max-w-md">
                             <div className="h-full bg-gray-800 shadow-xl flex flex-col overflow-y-auto">
-                                {/* Header */}
                                 <div className="px-4 py-6 bg-gray-900 flex items-center justify-between">
                                     <h2 className="text-xl font-bold text-white">Flight Details</h2>
                                     <button 
@@ -670,7 +786,6 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                     </button>
                                 </div>
                                 
-                                {/* Content */}
                                 <div className="flex-1 px-4 py-6">
                                     {loadingFlightDetails ? (
                                         <div className="flex justify-center items-center h-64">
@@ -682,7 +797,6 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                         </div>
                                     ) : flightDetailsData ? (
                                         <div className="space-y-6 text-gray-200">
-                                            {/* Flight Route */}
                                             <div className="border-b border-gray-700 pb-4">
                                                 <h3 className="text-lg font-semibold mb-2">Flight Route</h3>
                                                 <p className="text-gray-300">
@@ -690,7 +804,6 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                                 </p>
                                             </div>
 
-                                            {/* Flight Timing */}
                                             <div className="border-b border-gray-700 pb-4">
                                                 <h3 className="text-lg font-semibold mb-2">Timing</h3>
                                                 <div className="grid grid-cols-2 gap-4">
@@ -709,7 +822,6 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                                 </div>
                                             </div>
 
-                                            {/* Price */}
                                             <div className="border-b border-gray-700 pb-4">
                                                 <h3 className="text-lg font-semibold mb-2">Price</h3>
                                                 <p className="text-green-400 font-bold">
@@ -717,14 +829,12 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                                 </p>
                                             </div>
 
-                                            {/* Luggage Information */}
                                             <div className="border-b border-gray-700 pb-4">
                                                 <h3 className="text-lg font-semibold mb-2">Luggage Information</h3>
                                                 {flightDetailsData.segments?.map((segment, segmentIndex) => (
                                                     <div key={segmentIndex} className="mb-4">
                                                         <p className="font-medium">Segment {segmentIndex + 1}</p>
                                                         <div className="grid grid-cols-2 gap-4 mt-2">
-                                                            {/* Cabin Luggage */}
                                                             <div className="bg-gray-700 p-2 rounded">
                                                                 <p className="font-medium text-sm">Cabin Luggage</p>
                                                                 <p className="text-gray-300 text-sm">
@@ -733,7 +843,6 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                                                     {segment.travellerCabinLuggage?.[0]?.luggageAllowance?.massUnit}
                                                                 </p>
                                                             </div>
-                                                            {/* Checked Luggage */}
                                                             <div className="bg-gray-700 p-2 rounded">
                                                                 <p className="font-medium text-sm">Checked Luggage</p>
                                                                 <p className="text-gray-300 text-sm">
@@ -747,11 +856,9 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                                 ))}
                                             </div>
 
-                                            {/* Flight Stops */}
                                             <div className="border-b border-gray-700 pb-4">
                                                 <h3 className="text-lg font-semibold mb-2">Flight Stops</h3>
                                                 {flightDetailsData.segments?.[0]?.legs?.map((leg, index) => {
-                                                    // Remove duplicate airlines
                                                     const uniqueCarriers = leg.carriersData?.filter(
                                                         (carrier, carrierIndex, self) =>
                                                             self.findIndex((c) => c.name === carrier.name) === carrierIndex
@@ -766,7 +873,6 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                                             <p className="text-gray-300">Departure: {leg.departureTime}</p>
                                                             <p className="text-gray-300">Arrival: {leg.arrivalTime}</p>
                                                             
-                                                            {/* Airline Logos and Names */}
                                                             <div className="mt-2">
                                                                 <h4 className="text-md font-semibold">Airline:</h4>
                                                                 <div className="flex flex-wrap gap-4 mt-2">
@@ -787,7 +893,6 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                                 })}
                                             </div>
 
-                                            {/* Additional Details */}
                                             <div className="border-b border-gray-700 pb-4">
                                                 <h3 className="text-lg font-semibold mb-2">Additional Information</h3>
                                                 <div className="grid grid-cols-2 gap-4">
@@ -802,7 +907,6 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                                 </div>
                                             </div>
 
-                                            {/* Select Button */}
                                             <div className="pt-4">
                                                 <button
                                                     onClick={() => {

@@ -11,7 +11,7 @@ import { pdf } from "@react-pdf/renderer";
 import HotelInvoicePDF from "../Components/HotelInvoicePDF";
 import { useNavigate } from "react-router-dom";
 import { logUserActivity } from "../services/LoggingService"; // Import logging service
-
+import Hotel from '../../src/assets/Hotel.jpg'
 export default function HotelSearch() {
     const storage = getStorage();
     const [destination, setDestination] = useState("");
@@ -94,6 +94,7 @@ export default function HotelSearch() {
     const handleSuggestionClick = (suggestion) => {
         setDestination(suggestion.name);
         setDestId(suggestion.dest_id);
+        console.log("Selected destination ID:", suggestion.dest_id);
         setDestinationSuggestions([]);
     };
 
@@ -108,6 +109,9 @@ export default function HotelSearch() {
             setLoading(false);
             return;
         }
+
+        // Log destination ID when searching
+        console.log("Searching with destination ID:", destId);
 
         // Calculate departure date based on arrival date and days of stay
         const arrival = new Date(arrivalDate);
@@ -155,7 +159,6 @@ export default function HotelSearch() {
             console.log("Sending API request...");
             const response = await fetch(url, options);
             console.log("API Response Status:", response.status);
-            
             // Log headers for debugging
             const responseHeaders = {};
             response.headers.forEach((value, key) => {
@@ -168,14 +171,12 @@ export default function HotelSearch() {
                 console.error("API Error Response:", errorText);
                 throw new Error(`HTTP error! Status: ${response.status}, Details: ${errorText}`);
             }
-            
             const data = await response.json();
             console.log("API Response Data (sample):", {
                 status: data.status,
                 message: data.message,
                 count: data.data?.hotels?.length || 0
             });
-            
             setHotelData(data);
         } catch (err) {
             console.error("API Request Failed:", err);
@@ -196,17 +197,14 @@ export default function HotelSearch() {
         const value = e.target.value;
         setAdults(value === '' ? '' : Math.max(1, parseInt(value) || 1));
     };
-
     const handleRoomQtyChange = (e) => {
         const value = e.target.value;
         setRoomQty(value === '' ? '' : Math.max(1, parseInt(value) || 1));
     };
-
     const handleDaysOfStayChange = (e) => {
         const value = e.target.value;
         setDaysOfStay(value === '' ? '' : Math.max(1, parseInt(value) || 1));
     };
-
     const handleChildrenAgeChange = (e) => {
         const input = e.target.value;
         if (input === '') {
@@ -221,7 +219,6 @@ export default function HotelSearch() {
                 const parsed = parseInt(age);
                 return isNaN(parsed) ? 0 : parsed;
             });
-        
         setChildrenAge(ages);
     };
 
@@ -243,7 +240,7 @@ export default function HotelSearch() {
         }
         
         setSelectedHotel(hotel);
-        setShowPaymentModal(true);
+        setShowPaymentModal(true);  
     };
 
     // Generate random transaction ID
@@ -254,7 +251,6 @@ export default function HotelSearch() {
     // Process payment
     const processPayment = async (e) => {
         e.preventDefault();
-        
         // Validate card details
         if (!cardNumber || !cardExpiry || !cardCVC || !cardName) {
             toast.error("Please fill in all card details");
@@ -279,7 +275,6 @@ export default function HotelSearch() {
         setProcessingPayment(true);
         const newTransactionId = generateTransactionId();
         setTransactionId(newTransactionId);
-
         try {
             // Calculate total price
             const totalPrice = Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value) * daysOfStay;
@@ -313,7 +308,6 @@ export default function HotelSearch() {
             // Save to Firebase
             const docRef = await addDoc(collection(db, "user_hotels"), bookingDetails);
             console.log("Hotel booking saved with ID: ", docRef.id);
-            
             // Log user hotel booking activity
             const hotelLogDetails = {
                 hotelName: selectedHotel.property.name,
@@ -342,7 +336,6 @@ export default function HotelSearch() {
             
             // Set processing to false
             setProcessingPayment(false);
-            
         } catch (error) {
             console.error("Error saving hotel booking:", error);
             toast.error("Failed to process booking. Please try again.");
@@ -374,19 +367,19 @@ export default function HotelSearch() {
             return new Promise((resolve, reject) => {
                 uploadTask.on(
                     "state_changed",
-                    // Progress function
                     (snapshot) => {
+                        // Progress function
                         const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
                         console.log(`Upload is ${progress}% complete`);
                     },
-                    // Error function
                     (error) => {
+                        // Error function
                         console.error("Error uploading invoice:", error);
                         setUploadingInvoice(false);
                         reject(error);
                     },
-                    // Complete function
                     async () => {
+                        // Complete function
                         try {
                             // Get the download URL
                             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
@@ -426,7 +419,6 @@ export default function HotelSearch() {
         for (let i = 0; i < match.length; i += 4) {
             parts.push(match.substring(i, i + 4));
         }
-        
         if (parts.length) {
             return parts.join(' ');
         } else {
@@ -443,7 +435,6 @@ export default function HotelSearch() {
         
         let month = cleanValue.substr(0, 2);
         let year = cleanValue.substr(2);
-        
         // Validate month
         if (parseInt(month) > 12) {
             month = '12';
@@ -457,7 +448,6 @@ export default function HotelSearch() {
         const formattedValue = formatCardNumber(e.target.value);
         setCardNumber(formattedValue);
     };
-
     // Handle card expiry input
     const handleCardExpiryChange = (e) => {
         const formattedValue = formatCardExpiry(e.target.value);
@@ -495,110 +485,110 @@ export default function HotelSearch() {
     };
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-r from-blue-900 to-gray-900 p-4">
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${Hotel})` }}>
             <div className="bg-white bg-opacity-95 p-8 rounded-xl shadow-2xl w-full max-w-5xl mx-4 animate-slideUp transition-all duration-500">
                 <h1 className="text-3xl font-bold text-center mb-6">Find Your Perfect Hotel</h1>
+                
+                {/* Search Form - Reorganized into a 3-column grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    {/* Destination Input - Full width */}
+                    <div className="md:col-span-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Destination
+                        </label>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={destination}
+                                onChange={handleDestinationChange}
+                                placeholder="Enter destination"
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                            {destinationSuggestions.length > 0 && (
+                                <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                    {destinationSuggestions.map((suggestion) => (
+                                        <li
+                                            key={suggestion.dest_id}
+                                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                            onClick={() => handleSuggestionClick(suggestion)}
+                                        >
+                                            {suggestion.name}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    </div>
 
-                {/* Destination Input */}
-                <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Destination
-                    </label>
-                    <div className="relative">
+                    {/* First row: 3 columns */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Arrival Date
+                        </label>
                         <input
-                            type="text"
-                            value={destination}
-                            onChange={handleDestinationChange}
-                            placeholder="Enter destination"
+                            type="date"
+                            value={arrivalDate}
+                            min={new Date().toISOString().split("T")[0]}
+                            onChange={(e) => setArrivalDate(e.target.value)}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
-                        {destinationSuggestions.length > 0 && (
-                            <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                                {destinationSuggestions.map((suggestion) => (
-                                    <li
-                                        key={suggestion.dest_id}
-                                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                        onClick={() => handleSuggestionClick(suggestion)}
-                                    >
-                                        {suggestion.name}
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Days of Stay
+                        </label>
+                        <input
+                            type="number"
+                            value={daysOfStay}
+                            onChange={handleDaysOfStayChange}
+                            min="1"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Rooms
+                        </label>
+                        <input
+                            type="number"
+                            value={roomQty}
+                            onChange={handleRoomQtyChange}
+                            min="1"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                    </div>
+
+                    {/* Second row: Adults and Children Ages */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Adults
+                        </label>
+                        <input
+                            type="number"
+                            value={adults}
+                            onChange={handleAdultsChange}
+                            min="1"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                    </div>
+
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Children Ages (comma-separated)
+                        </label>
+                        <input
+                            type="text"
+                            value={childrenAge.join(",")}
+                            onChange={handleChildrenAgeChange}
+                            placeholder="e.g., 5, 10"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
                     </div>
                 </div>
 
-                {/* Arrival Date */}
-                <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Arrival Date
-                    </label>
-                    <input
-                        type="date"
-                        value={arrivalDate}
-                        min={new Date().toISOString().split("T")[0]}
-                        onChange={(e) => setArrivalDate(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                </div>
-
-                {/* Days of Stay */}
-                <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Days of Stay
-                    </label>
-                    <input
-                        type="number"
-                        value={daysOfStay}
-                        onChange={handleDaysOfStayChange}
-                        min="1"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                </div>
-
-                {/* Adults */}
-                <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Adults
-                    </label>
-                    <input
-                        type="number"
-                        value={adults}
-                        onChange={handleAdultsChange}
-                        min="1"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                </div>
-
-                {/* Children Ages */}
-                <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Children Ages (comma-separated)
-                    </label>
-                    <input
-                        type="text"
-                        value={childrenAge.join(",")}
-                        onChange={handleChildrenAgeChange}
-                        placeholder="e.g., 5, 10"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                </div>
-
-                {/* Room Quantity */}
-                <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Rooms
-                    </label>
-                    <input
-                        type="number"
-                        value={roomQty}
-                        onChange={handleRoomQtyChange}
-                        min="1"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                </div>
-
-                {/* Search Button */}
+                {/* Search Button - Full width */}
                 <button
                     onClick={handleSearch}
                     disabled={loading || !destId || !arrivalDate || daysOfStay < 1}
@@ -709,7 +699,6 @@ export default function HotelSearch() {
                                     </div>
                                     <h3 className="text-lg font-bold text-gray-800 mb-2">Your Hotel is Booked!</h3>
                                     <p className="text-gray-600 mb-4">Transaction ID: {transactionId}</p>
-                                    
                                     <div className="bg-gray-100 rounded-lg p-4 mb-4 text-left">
                                         <h4 className="font-bold text-gray-700 mb-2">{selectedHotel.property.name}</h4>
                                         <p className="text-sm text-gray-600 mb-1">Check-in: {arrivalDate}</p>

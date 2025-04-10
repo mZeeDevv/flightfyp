@@ -419,7 +419,7 @@ export default function Home() {
             <About />
             <Cheap />
             <Newsletter />
-            {/* <ChatWidget /> */}
+            <ChatWidget />
         </>
     );
 }

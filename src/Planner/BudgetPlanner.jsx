@@ -132,6 +132,14 @@ const BudgetPlanner = () => {
         }));
     };
 
+    // Add new function to handle hotel budget change
+    const handleHotelBudgetChange = (e) => {
+        setBudget(prev => ({
+            ...prev,
+            hotel: e.target.value
+        }));
+    };
+
     // Handle search
     const handleSearch = async () => {
         setLoading(true); // Start loading effect
@@ -140,7 +148,7 @@ const BudgetPlanner = () => {
         // Reset selected flight and hotel
         setSelectedFlight(null);
         setSelectedHotel(null);
-        setBudget(prev => ({ ...prev, flight: "", hotel: "" }));
+        setBudget(prev => ({ ...prev, flight: "" }));
 
         // Calculate returnDate if it's not provided
         let calculatedReturnDate = returnDate;
@@ -168,6 +176,7 @@ const BudgetPlanner = () => {
                 returnDate: calculatedReturnDate, // Use calculated returnDate
                 cabinClass,
                 budget: budget.total,
+                hotelBudget: budget.hotel, // Pass hotel budget to TripDetails
                 selectedFlight,
                 selectedHotel,
                 daysOfStay,
@@ -225,6 +234,7 @@ const BudgetPlanner = () => {
             departureDate &&
             (tripType === "ONE_WAY" || returnDate || daysOfStay) && // Allow daysOfStay as an alternative
             budget.total &&
+            budget.hotel && // Make sure hotel budget is provided
             daysOfStay
         );
     };
@@ -269,9 +279,9 @@ const BudgetPlanner = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                     {/* From and To fields with swap button */}
-                    <div className="relative lg:col-span-5 md:col-span-2 flex">
+                    <div className="relative md:col-span-6 flex">
                         <div className="flex-1">
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 From
@@ -332,7 +342,7 @@ const BudgetPlanner = () => {
                     </div>
 
                     {/* Date fields */}
-                    <div className="lg:col-span-4 grid grid-cols-2 gap-4">
+                    <div className="md:col-span-6 grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Departure Date
@@ -365,7 +375,7 @@ const BudgetPlanner = () => {
                     </div>
 
                     {/* Travel Category and Cabin Class */}
-                    <div className="lg:col-span-3 flex flex-col gap-4">
+                    <div className="md:col-span-4 grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Travel Category
@@ -398,21 +408,31 @@ const BudgetPlanner = () => {
                         </div>
                     </div>
 
-                    {/* Budget and Days of Stay */}
-                    <div className="lg:col-span-3 flex flex-col gap-4">
+                    {/* Combined Budget and Days of Stay row */}
+                    <div className="md:col-span-8 grid grid-cols-3 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Budget Details (PKR)
+                                Flight Budget (PKR)
                             </label>
-                            <div className="space-y-2">
-                                <input
-                                    type="number"
-                                    value={budget.total}
-                                    onChange={handleBudgetChange}
-                                    placeholder="Total Budget"
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                />
-                            </div>
+                            <input
+                                type="number"
+                                value={budget.total}
+                                onChange={handleBudgetChange}
+                                placeholder="Total Budget"
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Hotel Budget (PKR)
+                            </label>
+                            <input
+                                type="number"
+                                value={budget.hotel}
+                                onChange={handleHotelBudgetChange}
+                                placeholder="Hotel Budget"
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -422,16 +442,20 @@ const BudgetPlanner = () => {
                                 type="number"
                                 value={daysOfStay}
                                 onChange={(e) => setDaysOfStay(e.target.value)}
-                                placeholder="Enter days of stay"
+                                placeholder="Enter days"
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
                         </div>
+                    </div>
+
+                    {/* Search Button */}
+                    <div className="md:col-span-12 mt-2">
                         <button
                             onClick={handleSearch}
                             disabled={loading || !isFormValid()}
-                            className={`flex items-center justify-center px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 ${
+                            className={`w-full flex items-center justify-center px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 ${
                                 isFormValid() && !loading
-                                    ? "bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl"
+                                    ? "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl"
                                     : "bg-gray-400 cursor-not-allowed"
                             }`}
                         >
@@ -459,7 +483,7 @@ const BudgetPlanner = () => {
                                 </>
                             ) : (
                                 <>
-                                    <FaSearch className="mr-2" /> Find Options
+                                    <FaSearch className="mr-2" /> Find Best Travel Options
                                 </>
                             )}
                         </button>
@@ -478,13 +502,33 @@ const BudgetPlanner = () => {
                     </div>
                 )}
 
-                {/* Travel tips */}
-                <div className="mt-8 bg-blue-50 p-4 rounded-lg border border-blue-100">
-                    <h3 className="text-blue-800 font-medium mb-2">Travel Tips</h3>
-                    <ul className="text-sm text-blue-700 space-y-1">
-                        <li>• Book 3-4 weeks in advance for the best prices</li>
-                        <li>• Tuesday and Wednesday flights are often cheaper</li>
-                        <li>• Be flexible with your travel dates for better deals</li>
+                {/* Travel tips - improved appearance */}
+                <div className="mt-8 bg-gradient-to-r from-blue-50 to-blue-100 p-5 rounded-lg border border-blue-200 shadow-inner">
+                    <h3 className="text-blue-800 font-semibold mb-3 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                        Travel Tips & Recommendations
+                    </h3>
+                    <ul className="text-sm text-blue-700 space-y-2">
+                        <li className="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            Book 3-4 weeks in advance for the best prices
+                        </li>
+                        <li className="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            Tuesday and Wednesday flights are often cheaper
+                        </li>
+                        <li className="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            Be flexible with your travel dates for better deals
+                        </li>
                     </ul>
                 </div>
             </div>

@@ -29,10 +29,8 @@ ChartJS.register(
 );
 
 const AdminReports = () => {
-  const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingAnalytics, setLoadingAnalytics] = useState(true);
-  const [filter, setFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('popular');
   const [popularDestinations, setPopularDestinations] = useState([]);
   const [bookingTrends, setBookingTrends] = useState({});
@@ -40,31 +38,6 @@ const AdminReports = () => {
   const [preferredAirlines, setPreferredAirlines] = useState([]);
   const [recentBookings, setRecentBookings] = useState({});
   const db = getFirestore();
-  
-  // Fetch reports
-  useEffect(() => {
-    const fetchReports = async () => {
-      try {
-        setLoading(true);
-        setTimeout(() => {
-          const dummyReports = [
-            { id: 1, title: 'Monthly Revenue Report', category: 'financial', date: '2023-08-01', downloadUrl: '#' },
-            { id: 2, title: 'User Activity Summary', category: 'user', date: '2023-07-15', downloadUrl: '#' },
-            { id: 3, title: 'Flight Bookings Analysis', category: 'bookings', date: '2023-07-01', downloadUrl: '#' },
-            { id: 4, title: 'Hotel Reservation Trends', category: 'bookings', date: '2023-06-15', downloadUrl: '#' },
-            { id: 5, title: 'System Performance Metrics', category: 'system', date: '2023-06-01', downloadUrl: '#' },
-          ];
-          setReports(dummyReports);
-          setLoading(false);
-        }, 800);
-      } catch (error) {
-        console.error('Error fetching reports:', error);
-        setLoading(false);
-      }
-    };
-    
-    fetchReports();
-  }, []);
   
   useEffect(() => {
     setLoadingAnalytics(true);
@@ -423,11 +396,6 @@ const AdminReports = () => {
     }
   };
   
-  // Filter reports based on selected category
-  const filteredReports = filter === 'all' 
-    ? reports 
-    : reports.filter(report => report.category === filter);
-
   // Format date to readable format without date-fns
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -469,7 +437,7 @@ const AdminReports = () => {
         <p className="text-gray-600 mt-2">Insights into travel patterns and booking statistics</p>
       </div>
       
-      {/* Analytics Tabs */}
+      {/* Analytics Tabs - Remove the Reports tab */}
       <div className="mb-6 border-b border-gray-200">
         <nav className="-mb-px flex space-x-8" aria-label="Tabs">
           <button
@@ -493,17 +461,6 @@ const AdminReports = () => {
           >
             <FaCalendarAlt className="mr-2" />
             Booking Insights
-          </button>
-          <button
-            onClick={() => setActiveTab('reports')}
-            className={`${
-              activeTab === 'reports'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
-          >
-            <FaFileAlt className="mr-2" />
-            Reports
           </button>
         </nav>
       </div>
@@ -798,106 +755,6 @@ const AdminReports = () => {
                   })()}
                 </div>
               </>
-            )}
-          </div>
-        </div>
-      )}
-      
-      {/* Reports Tab */}
-      {activeTab === 'reports' && (
-        <div>
-          {/* Filter Controls */}
-          <div className="mb-6 bg-white rounded-lg shadow-md p-4">
-            <div className="flex items-center">
-              <FaFilter className="text-gray-500 mr-2" />
-              <span className="mr-4 font-medium">Filter by:</span>
-              <div className="flex flex-wrap gap-2">
-                <button 
-                  onClick={() => setFilter('all')} 
-                  className={`px-3 py-1 rounded-full text-sm ${filter === 'all' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                >
-                  All Reports
-                </button>
-                <button 
-                  onClick={() => setFilter('financial')} 
-                  className={`px-3 py-1 rounded-full text-sm ${filter === 'financial' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                >
-                  Financials
-                </button>
-                <button 
-                  onClick={() => setFilter('user')} 
-                  className={`px-3 py-1 rounded-full text-sm ${filter === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                >
-                  User Activity
-                </button>
-                <button 
-                  onClick={() => setFilter('bookings')} 
-                  className={`px-3 py-1 rounded-full text-sm ${filter === 'bookings' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                >
-                  Bookings
-                </button>
-                <button 
-                  onClick={() => setFilter('system')} 
-                  className={`px-3 py-1 rounded-full text-sm ${filter === 'system' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                >
-                  System
-                </button>
-              </div>
-            </div>
-          </div>
-          
-          {/* Reports List */}
-          <div className="bg-white rounded-lg shadow-md">
-            {loading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-              </div>
-            ) : filteredReports.length === 0 ? (
-              <div className="p-8 text-center">
-                <p className="text-gray-500">No reports found for the selected filter.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Report</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {filteredReports.map((report) => (
-                      <tr key={report.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center">
-                              <FaFileAlt className="text-blue-500" />
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">{report.title}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                            {report.category.charAt(0).toUpperCase() + report.category.slice(1)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatDate(report.date)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <a href={report.downloadUrl} className="text-blue-600 hover:text-blue-900 flex items-center">
-                            <FaDownload className="mr-1" /> Download
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
             )}
           </div>
         </div>
