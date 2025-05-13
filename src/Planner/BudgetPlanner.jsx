@@ -127,22 +127,34 @@ const BudgetPlanner = () => {
             ...prev,
             hotel: pricePKR
         }));
-    };
-
-    // Modify budget input to show total budget
+        };    // Modify budget input to show total budget
     const handleBudgetChange = (e) => {
+        // Remove commas and ensure only numbers are stored
+        const value = e.target.value.replace(/[^0-9]/g, '');
+        
+        // Format number with commas for display
+        const formattedValue = value ? parseInt(value).toLocaleString() : '';
+        
         setBudget(prev => ({
             ...prev,
-            total: e.target.value
+            total: value // Store raw value in state, not formatted
         }));
+        
+        console.log("Flight budget set to:", value, "PKR");
     };
 
-    // Add new function to handle hotel budget change
+    // Fixing the issue with the hotel budget input field
     const handleHotelBudgetChange = (e) => {
+        // Remove commas and ensure only numbers are stored
+        const value = e.target.value.replace(/[^0-9]/g, '');
+
+        // Store raw value in state, not formatted
         setBudget(prev => ({
             ...prev,
-            hotel: e.target.value
+            hotel: value // Correctly store the raw value
         }));
+
+        console.log("Hotel budget set to:", value, "PKR");
     };
 
     // Handle search
@@ -170,10 +182,21 @@ const BudgetPlanner = () => {
         }
 
         const fromId = await fetchAirportId(from);
-        const toId = await fetchAirportId(to);        if (fromId && toId) {
-            // Convert PKR budgets to USD for API calls, but keep original PKR values for display
-            const flightBudgetUSD = Math.floor(parseInt(budget.total) / USD_TO_PKR_RATE);
-            const hotelBudgetUSD = Math.floor(parseInt(budget.hotel) / USD_TO_PKR_RATE);
+        const toId = await fetchAirportId(to);        if (fromId && toId) {            // Make sure budget values are properly parsed as numbers - use parseFloat for better accuracy with large numbers
+            const totalBudgetPKR = parseFloat(budget.total) || 0;
+            const hotelBudgetPKR = parseFloat(budget.hotel) || 0;
+            
+            // Convert PKR budgets to USD for API calls, ensuring proper division
+            const flightBudgetUSD = totalBudgetPKR > 0 ? parseFloat((totalBudgetPKR / USD_TO_PKR_RATE).toFixed(2)) : 0;
+            const hotelBudgetUSD = hotelBudgetPKR > 0 ? parseFloat((hotelBudgetPKR / USD_TO_PKR_RATE).toFixed(2)) : 0;
+            
+            console.log("Budget conversion:", {
+                "Flight budget (PKR)": totalBudgetPKR,
+                "Flight budget (USD)": flightBudgetUSD,
+                "Hotel budget (PKR)": hotelBudgetPKR,
+                "Hotel budget (USD)": hotelBudgetUSD,
+                "USD_TO_PKR_RATE": USD_TO_PKR_RATE
+            });
             
             // Prepare search results
             const searchResults = {
@@ -184,8 +207,8 @@ const BudgetPlanner = () => {
                 cabinClass,
                 budget: flightBudgetUSD, // USD budget for API
                 hotelBudget: hotelBudgetUSD, // USD hotel budget for API
-                budgetPKR: budget.total, // Original PKR budget for display
-                hotelBudgetPKR: budget.hotel, // Original PKR hotel budget for display
+                budgetPKR: totalBudgetPKR, // Original PKR budget for display
+                hotelBudgetPKR: hotelBudgetPKR, // Original PKR hotel budget for display
                 selectedFlight,
                 selectedHotel,
                 daysOfStay,
@@ -468,8 +491,8 @@ const BudgetPlanner = () => {
                                 Flight Budget (PKR)
                             </label>
                             <input
-                                type="number"
-                                value={budget.total}
+                                type="text"
+                                value={budget.total ? parseInt(budget.total).toLocaleString() : ''}
                                 onChange={handleBudgetChange}
                                 placeholder="Total Budget in PKR"
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -480,8 +503,8 @@ const BudgetPlanner = () => {
                                 Hotel Budget (PKR)
                             </label>
                             <input
-                                type="number"
-                                value={budget.hotel}
+                                type="text"
+                                value={budget.hotel ? parseInt(budget.hotel).toLocaleString() : ''}
                                 onChange={handleHotelBudgetChange}
                                 placeholder="Hotel Budget in PKR"
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"

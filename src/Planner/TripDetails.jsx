@@ -1,17 +1,45 @@
-import React, { use, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Spinner from '../Components/Spinner';
 import { FaStar } from "react-icons/fa";
 import { addDoc, collection } from "firebase/firestore";
 import { db } from "../firebase";
-import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import BookTrip from "../Components/BookTrip";
+import { toast } from "react-toastify";
 
 const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
 const API_HOST = "booking-com15.p.rapidapi.com";
 
 // Define USD to PKR conversion rate
 const USD_TO_PKR_RATE = 280;
+
+// Add a function to fetch the correct dest_id for a city
+const fetchDestinationId = async (city) => {
+    const url = `https://${API_HOST}/api/v1/flights/searchDestination?query=${encodeURIComponent(city)}`;
+    const options = {
+        method: "GET",
+        headers: {
+            "x-rapidapi-key": RAPIDAPI_KEY,
+            "x-rapidapi-host": API_HOST,
+        },
+    };
+
+    try {
+        const response = await fetch(url, options);
+        const result = await response.json();
+        console.log("Destination ID API Response:", result);
+
+        if (result?.data?.length > 0) {
+            return result.data[0].id; // Return the first matching dest_id
+        } else {
+            console.error("No destination ID found for city:", city);
+            return null;
+        }
+    } catch (error) {
+        console.error("Error fetching destination ID for city:", city, error);
+        return null;
+    }
+};
 
 const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
     const navigate = useNavigate();
@@ -90,19 +118,20 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
             totalUsd: usdPrice * (daysOfStay || 1),
             totalPkr: usdPrice * USD_TO_PKR_RATE * (daysOfStay || 1)
         });
-    };
-
-    const fetchFlights = async () => {
+    };    const fetchFlights = async () => {
         if (!fromId || !toId || !departureDate) {
             toast.error("Missing required search parameters for flights.");
             return;
         }
 
-        let url = `https://${API_HOST}/api/v1/flights/searchFlights?fromId=${fromId}&toId=${toId}&departDate=${departureDate}&currency_code=INR`;
+        // Always use USD for API requests to ensure consistent currency handling
+        let url = `https://${API_HOST}/api/v1/flights/searchFlights?fromId=${fromId}&toId=${toId}&departDate=${departureDate}&currency_code=USD`;
         if (returnDate) url += `&returnDate=${returnDate}`;
         if (cabinClass !== "Do not include in request") url += `&cabinClass=${cabinClass}`;
 
         console.log("Fetching flights with URL:", url);
+        console.log("User budget (USD):", budget);
+        console.log("User budget (PKR):", budget * USD_TO_PKR_RATE);
 
         const options = {
             method: "GET",
@@ -119,29 +148,44 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
 
             if (result.status === true && result.data?.flightOffers?.length > 0) {
                 console.log(`Found ${result.data.flightOffers.length} total flights before filtering`);
-                
+                  // Filter flights based on USD budget
                 const filteredFlights = result.data.flightOffers.filter((flight) => {
-                    const price = flight.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || Infinity;
-                    console.log(`Flight price: ${price}, Budget: ${budget}, Included: ${price <= budget}`);
-                    return price <= budget;
+                    // Parse price as a number to ensure proper comparison
+                    const priceUSD = parseFloat(flight.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units) || Infinity;
+                    const pricePKR = priceUSD * USD_TO_PKR_RATE;
+              
+                    // Ensure budget is treated as a number
+                    const budgetUSD = parseFloat(budget) || 0;
+                    const budgetPKR = budgetUSD * USD_TO_PKR_RATE;
+                    
+                    console.log(`Flight: ${flight.transactionId}, Price: $${priceUSD} USD / Rs.${Math.floor(pricePKR)} PKR, Budget: $${budgetUSD} USD / Rs.${Math.floor(budgetPKR)} PKR`);
+                    
+                    // Strict numerical comparison
+                    const isWithinBudget = priceUSD <= budgetUSD;
+                    
+                    console.log(`Is within budget: ${isWithinBudget}, Price type: ${typeof priceUSD}, Budget type: ${typeof budgetUSD}`);
+                    
+                    return isWithinBudget;
                 });
 
                 console.log(`After filtering: ${filteredFlights.length} flights remain`);
                 
                 if (filteredFlights.length === 0) {
                     toast.warn("No flights found within your budget. Please consider increasing your budget.");
-                    setError("No flights available within your budget of Rs. " + (budget * USD_TO_PKR_RATE));
+                    setError("No flights available within your budget of Rs. " + Math.floor(budget * USD_TO_PKR_RATE) + " PKR");
                     setFlightOffers([]);
                     
+                    // Sort flights by price to find the cheapest option
                     const sortedByPrice = [...result.data.flightOffers].sort((a, b) => {
                         const priceA = a.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || Infinity;
                         const priceB = b.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || Infinity;
                         return priceA - priceB;
                     });
-                    
-                    if (sortedByPrice.length > 0) {
-                        const cheapestPrice = sortedByPrice[0].travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units;
-                        toast.info(`The cheapest available flight costs Rs. ${cheapestPrice * USD_TO_PKR_RATE} PKR`);
+                      if (sortedByPrice.length > 0) {
+                        const cheapestPriceUSD = parseFloat(sortedByPrice[0].travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units);
+                        const cheapestPricePKR = Math.floor(cheapestPriceUSD * USD_TO_PKR_RATE);
+                        toast.info(`The cheapest available flight costs $${cheapestPriceUSD} USD (Rs. ${cheapestPricePKR} PKR)`);
+                        console.log(`Cheapest flight price: $${cheapestPriceUSD} USD / Rs.${cheapestPricePKR} PKR, Your budget: $${parseFloat(budget)} USD / Rs.${Math.floor(parseFloat(budget) * USD_TO_PKR_RATE)} PKR`);
                     }
                 } else {
                     setFlightOffers(filteredFlights);
@@ -216,17 +260,17 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         if (!departureDateForHotels) {
             setError("Missing departure date or days of stay for hotels.");
             return;
-        }
-
-        console.log("Hotel search parameters:", {
+        }        console.log("Hotel search parameters:", {
             destId,
             arrivalDate,
             departureDateForHotels,
             daysOfStay,
-            hotelBudget
+            hotelBudget: hotelBudget, // USD budget
+            hotelBudgetPKR: hotelBudget * USD_TO_PKR_RATE // PKR budget
         });
 
-        const url = `https://${API_HOST}/api/v1/hotels/searchHotels?dest_id=${destId}&search_type=HOTEL&arrival_date=${arrivalDate}&departure_date=${departureDateForHotels}&adults=1&room_qty=1&currency_code=INR&units=metric&languagecode=en-us`;
+        // Always use USD for API requests to ensure consistent currency handling
+        const url = `https://${API_HOST}/api/v1/hotels/searchHotels?dest_id=${destId}&search_type=CITY&arrival_date=${arrivalDate}&departure_date=${departureDateForHotels}&adults=1&room_qty=1&currency_code=USD&units=metric&languagecode=en-us`;
         console.log("Fetching hotels with URL:", url);
         
         const options = {
@@ -246,18 +290,28 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                 console.log(`Found ${result.data.hotels.length} total hotels before filtering`);
                 
                 const filteredHotels = result.data.hotels.filter((hotel) => {
-                    const pricePerNight = hotel.property?.priceBreakdown?.grossPrice?.value || Infinity;
-                    const totalPrice = pricePerNight * (daysOfStay || 1);
-                    console.log(`Hotel: ${hotel.property?.name}, Price per night: ${pricePerNight}, Total for ${daysOfStay} nights: ${totalPrice}, Hotel Budget: ${hotelBudget}, Included: ${totalPrice <= hotelBudget}`);
+                    const pricePerNightUSD = parseFloat(hotel.property?.priceBreakdown?.grossPrice?.value) || Infinity;
+                    const pricePerNightPKR = pricePerNightUSD * USD_TO_PKR_RATE;
+                    const totalPriceUSD = pricePerNightUSD * (parseInt(daysOfStay) || 1);
+                    const totalPricePKR = totalPriceUSD * USD_TO_PKR_RATE;
                     
-                    return totalPrice <= hotelBudget;
+                    // Ensure hotel budget is treated as a number
+                    const hotelBudgetUSD = parseFloat(hotelBudget) || 0;
+                    const hotelBudgetPKR = hotelBudgetUSD * USD_TO_PKR_RATE;
+                    
+                    console.log(`Hotel: ${hotel.property?.name}, Price per night: $${pricePerNightUSD} USD / Rs.${Math.floor(pricePerNightPKR)} PKR, 
+                    Total for ${daysOfStay} nights: $${totalPriceUSD} USD / Rs.${Math.floor(totalPricePKR)} PKR, 
+                    Hotel Budget: $${hotelBudgetUSD} USD / Rs.${Math.floor(hotelBudgetPKR)} PKR, 
+                    Included: ${totalPriceUSD <= hotelBudgetUSD}`);
+                    
+                    return totalPriceUSD <= hotelBudgetUSD;
                 });
 
                 console.log(`After filtering: ${filteredHotels.length} hotels remain`);
                 
                 if (filteredHotels.length === 0) {
                     toast.warn("No hotels found within your budget. Please consider increasing your hotel budget.");
-                    setError("No hotels available within your budget of Rs. " + (hotelBudget * USD_TO_PKR_RATE) + " PKR for " + daysOfStay + " nights.");
+                    setError("No hotels available within your budget of Rs. " + Math.floor(hotelBudget * USD_TO_PKR_RATE) + " PKR for " + daysOfStay + " nights.");
                     setHotelOffers([]);
                     
                     const sortedByPrice = [...result.data.hotels].sort((a, b) => {
@@ -267,9 +321,13 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                     });
                     
                     if (sortedByPrice.length > 0) {
-                        const cheapestPricePerNight = sortedByPrice[0].property?.priceBreakdown?.grossPrice?.value;
-                        const totalCheapestPrice = cheapestPricePerNight * (daysOfStay || 1);
-                        toast.info(`The cheapest available hotel costs Rs. ${Math.floor(cheapestPricePerNight * USD_TO_PKR_RATE)} PKR per night (Total: Rs. ${Math.floor(totalCheapestPrice * USD_TO_PKR_RATE)} PKR for ${daysOfStay} nights)`);
+                        const cheapestPricePerNightUSD = sortedByPrice[0].property?.priceBreakdown?.grossPrice?.value;
+                        const totalCheapestPriceUSD = cheapestPricePerNightUSD * (daysOfStay || 1);
+                        const cheapestPricePerNightPKR = Math.floor(cheapestPricePerNightUSD * USD_TO_PKR_RATE);
+                        const totalCheapestPricePKR = Math.floor(totalCheapestPriceUSD * USD_TO_PKR_RATE);
+                        
+                        toast.info(`The cheapest available hotel costs $${cheapestPricePerNightUSD} USD (Rs. ${cheapestPricePerNightPKR} PKR) per night 
+                        (Total: $${totalCheapestPriceUSD} USD / Rs. ${totalCheapestPricePKR} PKR for ${daysOfStay} nights)`);
                     }
                 } else {
                     setHotelOffers(filteredHotels);
@@ -713,7 +771,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                 
                                     <p className="text-xs text-gray-400">Selected Price:</p>
                                     <p className="text-xs font-bold text-green-400 text-right">
-                                        Rs. {totalSelectedPrice.flight || "0"}
+                                        Rs. {totalSelectedPrice.flight * USD_TO_PKR_RATE || "0"}
                                     </p>
                                 </div>
                             </div>
@@ -724,7 +782,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                     
                                     <p className="text-xs text-gray-400">Selected Hotel:</p>
                                     <p className="text-xs font-bold text-green-400 text-right">
-                                        Rs. {totalSelectedPrice.hotel * (daysOfStay || 1) || "0"}
+                                        Rs. {totalSelectedPrice.hotel * 280 * (daysOfStay || 1) || "0" }
                                         <span className="text-gray-500 text-xs"> ({daysOfStay || 1} nights)</span>
                                     </p>
                                 </div>
