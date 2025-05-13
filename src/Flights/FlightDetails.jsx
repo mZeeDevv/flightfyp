@@ -2,6 +2,15 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Spinner from '../Components/Spinner'; // Import the Spinner component
 
+// Define constant for currency conversion
+const USD_TO_PKR_RATE = 280; // Conversion rate: 1 USD = 280 PKR
+
+// Utility function to convert USD to PKR
+const convertUsdToPkr = (usdAmount) => {
+  if (!usdAmount || isNaN(usdAmount)) return "N/A";
+  return Math.round(usdAmount * USD_TO_PKR_RATE);
+};
+
 export default function FlightDetails() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -16,9 +25,8 @@ export default function FlightDetails() {
         setError("No token provided.");
         setLoading(false);
         return;
-      }
-
-      const url = `https://booking-com15.p.rapidapi.com/api/v1/flights/getFlightDetails?token=${token}&currency_code=INR`;
+      }      // Use USD currency code in API call since PKR is not supported
+      const url = `https://booking-com15.p.rapidapi.com/api/v1/flights/getFlightDetails?token=${token}&currency_code=USD`;
       const options = {
         method: "GET",
         headers: {
@@ -47,11 +55,14 @@ export default function FlightDetails() {
 
     fetchFlightDetails();
   }, [token]);
-
   const handlePaymentClick = () => {
+    const usdPrice = flightDetails.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units;
+    const pkrPrice = convertUsdToPkr(usdPrice);
+    
     navigate('/payment', { 
       state: { 
-        amount: flightDetails.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units,
+        amount: pkrPrice, // PKR amount
+        amountUsd: usdPrice, // Original USD amount
         flightNumber: flightDetails.segments?.[0]?.legs?.[0]?.flightNumber,
         token: token // Add the token to the state
       } 
@@ -102,14 +113,14 @@ export default function FlightDetails() {
                   <p className="font-medium">Arrival Time</p>
                   <p className="text-gray-600">{flightDetails.segments?.[0]?.arrivalTime || "N/A"}</p>
                 </div>
-              </div>
-            </div>
-
-            {/* Price */}
+              </div>            </div>            {/* Price */}
             <div className="border-b pb-4">
               <h2 className="text-xl font-semibold">Price</h2>
-              <p className="text-gray-600">
-                RS. {flightDetails.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || "N/A"}
+              <p className="font-bold text-green-600 text-xl">
+                RS. {convertUsdToPkr(flightDetails.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units) || "N/A"}
+              </p>
+              <p className="text-xs text-gray-500">
+                (USD: ${flightDetails.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || "N/A"})
               </p>
             </div>
             <div className="border-b pb-4">

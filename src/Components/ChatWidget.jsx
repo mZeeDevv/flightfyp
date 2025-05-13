@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
 
 const ChatWidget = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -7,15 +9,55 @@ const ChatWidget = () => {
     const [messages, setMessages] = useState([]);
     const [socket, setSocket] = useState(null);
     const [user, setUser] = useState(null); // Store user info (name and email)
-    const messagesEndRef = useRef(null);
-
-    useEffect(() => {
+    const [authChecked, setAuthChecked] = useState(false); // Flag to check if auth has been checked
+    const messagesEndRef = useRef(null);    useEffect(() => {
         const newSocket = io('http://localhost:4000', {
             transports: ['websocket', 'polling'],
         });
         setSocket(newSocket);
 
-        return () => newSocket.close();
+        // Check if user is logged in with Firebase Auth
+        const auth = getAuth();
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+            if (currentUser) {
+                // User is signed in
+                try {
+                    // Try to get additional user info from Firestore
+                    const db = getFirestore();
+                    const usersRef = collection(db, "users");
+                    const q = query(usersRef, where("email", "==", currentUser.email));
+                    const querySnapshot = await getDocs(q);
+                    
+                    if (!querySnapshot.empty) {
+                        // Use data from Firestore
+                        const userData = querySnapshot.docs[0].data();
+                        setUser({
+                            name: userData.name || currentUser.displayName || "User",
+                            email: currentUser.email
+                        });
+                    } else {
+                        // Fallback to Auth data
+                        setUser({
+                            name: currentUser.displayName || "User",
+                            email: currentUser.email
+                        });
+                    }
+                } catch (error) {
+                    console.error("Error fetching user data:", error);
+                    // Fallback to Auth data on error
+                    setUser({
+                        name: currentUser.displayName || "User",
+                        email: currentUser.email
+                    });
+                }
+            }
+            setAuthChecked(true);
+        });
+
+        return () => {
+            newSocket.close();
+            unsubscribe();
+        };
     }, []);
 
     useEffect(() => {
@@ -52,16 +94,22 @@ const ChatWidget = () => {
             ]);
             setMessage('');
         }
-    };
-
-    const handleUserSubmit = (e) => {
+    };    const handleUserSubmit = (e) => {
         e.preventDefault();
         const name = e.target.name.value;
         const email = e.target.email.value;
         if (name && email) {
-            setUser({ name, email });
+            setUser({ 
+                name: name || "Customer", 
+                email: email || "customer@example.com"
+            });
         }
     };
+    
+    // Scroll to bottom of messages when messages change
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
 
     return (
         <div className="fixed bottom-4 right-4 z-50">
@@ -77,9 +125,9 @@ const ChatWidget = () => {
                     <div className="bg-blue-600 p-4 text-white rounded-t-lg flex justify-between">
                         <h3>Support Chat</h3>
                         <button onClick={() => setIsOpen(false)}>×</button>
-                    </div>
-                    {!user ? (
+                    </div>                    {!user && authChecked ? (
                         <div className="p-4">
+                            <p className="text-center mb-3 text-gray-600">Please enter your details to start chatting</p>
                             <form onSubmit={handleUserSubmit}>
                                 <input
                                     type="text"
@@ -102,6 +150,10 @@ const ChatWidget = () => {
                                     Start Chat
                                 </button>
                             </form>
+                        </div>
+                    ) : !authChecked ? (
+                        <div className="p-4 flex justify-center items-center h-48">
+                            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
                         </div>
                     ) : (
                         <>

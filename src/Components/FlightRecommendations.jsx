@@ -7,6 +7,13 @@ import { FaPlane, FaArrowRight, FaClock, FaMoneyBillWave } from 'react-icons/fa'
 // Use the same API constants as in Flights.jsx
 const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
 const API_HOST = "booking-com15.p.rapidapi.com";
+const USD_TO_PKR_RATE = 280; // Conversion rate: 1 USD = 280 PKR
+
+// Utility function to convert USD to PKR
+const convertUsdToPkr = (usdAmount) => {
+  if (!usdAmount || isNaN(usdAmount)) return "N/A";
+  return Math.round(usdAmount * USD_TO_PKR_RATE);
+};
 
 export default function FlightRecommendations() {
   const [recommendations, setRecommendations] = useState([]);
@@ -103,9 +110,8 @@ export default function FlightRecommendations() {
               console.log(`Skipping route ${pastFlight.departure} to ${pastFlight.arrival} - could not find airport IDs`);
               continue;
             }
-            
-            // 8. Use the airport IDs to search for flights
-            const url = `https://${API_HOST}/api/v1/flights/searchFlights?fromId=${fromId}&toId=${toId}&departDate=${futureDateStr}&currency_code=INR&cabinClass=ECONOMY`;
+              // 8. Use the airport IDs to search for flights - use USD since API doesn't support PKR
+            const url = `https://${API_HOST}/api/v1/flights/searchFlights?fromId=${fromId}&toId=${toId}&departDate=${futureDateStr}&currency_code=USD&cabinClass=ECONOMY`;
             
             const options = {
               method: "GET",
@@ -130,12 +136,13 @@ export default function FlightRecommendations() {
               
               for (let i = 0; i < offersToShow; i++) {
                 const offer = result.data.flightOffers[i];
-                
-                const departureAirport = offer.segments?.[0]?.departureAirport;
+                  const departureAirport = offer.segments?.[0]?.departureAirport;
                 const arrivalAirport = offer.segments?.[0]?.arrivalAirport;
                 const departureTime = offer.segments?.[0]?.departureTime;
                 const arrivalTime = offer.segments?.[0]?.arrivalTime;
-                const price = offer.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || 0;
+                
+                // Get price in USD and convert to PKR
+                const priceUsd = offer.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || 0;
                 
                 // Calculate duration in minutes
                 const duration = new Date(arrivalTime).getTime() - new Date(departureTime).getTime();
@@ -157,11 +164,11 @@ export default function FlightRecommendations() {
                   departure: departureAirport?.code || pastFlight.departure,
                   arrival: arrivalAirport?.code || pastFlight.arrival,
                   departureTime: departureTime,
-                  arrivalTime: arrivalTime,
-                  flightNumber: offer.segments?.[0]?.flightNumber || 
+                  arrivalTime: arrivalTime,                  flightNumber: offer.segments?.[0]?.flightNumber || 
                                offer.segments?.[0]?.legs?.[0]?.flightNumber || 
                                "N/A",
-                  amount: price,
+                  amount: priceUsd, // Store USD amount
+                  amountPkr: convertUsdToPkr(priceUsd), // Store converted PKR amount
                   airline: airlineName,
                   airlineLogo: airlineLogo,
                   duration: durationMinutes,
@@ -392,16 +399,13 @@ export default function FlightRecommendations() {
                   </div>
                   
                   <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-100">
-                    <div className="flex items-center">
-                      <FaMoneyBillWave className="text-green-600 mr-2" />
+                    <div className="flex items-center">                      <FaMoneyBillWave className="text-green-600 mr-2" />
                       <div>
                         <p className="text-xs text-gray-500">Price</p>
-                        <p className="text-xl font-bold text-green-600">RS. {flight.amount}</p>
+                        <p className="text-xl font-bold text-green-600">RS. {convertUsdToPkr(flight.amount)}</p>
                       </div>
                     </div>
-                    <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm hover:bg-blue-700 transition-colors">
-                      View Details
-                    </div>
+                
                   </div>
                 </div>
               </Link>

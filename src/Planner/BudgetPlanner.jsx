@@ -3,6 +3,8 @@ import { FaExchangeAlt, FaSearch } from "react-icons/fa";
 import TripDetails from "./TripDetails"; // Import the TripDetails component
 import bg from "../assets/254381.webp";
 
+// Define USD to PKR conversion rate
+const USD_TO_PKR_RATE = 280;
 
 const BudgetPlanner = () => {
    
@@ -98,29 +100,32 @@ const BudgetPlanner = () => {
         const query = e.target.value;
         setTo(query);
         debouncedFetchToSuggestions(query);
-    };
-
-    // Handle selection of a suggestion
+    };    // Handle selection of a suggestion
     const handleSuggestionClick = (suggestion, setField, setSuggestions) => {
+        console.log('Selected suggestion:', suggestion);
+        console.log('Suggestion name:', suggestion.name);
+        console.log('Suggestion ID:', suggestion.id);
         setField(suggestion.name); // Set the input field value
         setSuggestions([]); // Clear suggestions
-    };
-
-    // Add new function to handle flight selection
-    const handleFlightSelection = (flightId, flightPrice) => {
+    };// Add new function to handle flight selection
+    const handleFlightSelection = (flightId, flightPrice, priceDetails) => {
         setSelectedFlight(flightId);
+        // If we receive price details object with PKR, use it; otherwise convert USD to PKR
+        const pricePKR = priceDetails?.pkr || (flightPrice * USD_TO_PKR_RATE);
         setBudget(prev => ({
             ...prev,
-            flight: flightPrice
+            flight: pricePKR
         }));
     };
 
     // Add new function to handle hotel selection
-    const handleHotelSelection = (hotelId, hotelPrice) => {
+    const handleHotelSelection = (hotelId, hotelPrice, priceDetails) => {
         setSelectedHotel(hotelId);
+        // If we receive price details object with PKR, use it; otherwise convert USD to PKR
+        const pricePKR = priceDetails?.pkr || (hotelPrice * USD_TO_PKR_RATE);
         setBudget(prev => ({
             ...prev,
-            hotel: hotelPrice
+            hotel: pricePKR
         }));
     };
 
@@ -165,9 +170,11 @@ const BudgetPlanner = () => {
         }
 
         const fromId = await fetchAirportId(from);
-        const toId = await fetchAirportId(to);
-
-        if (fromId && toId) {
+        const toId = await fetchAirportId(to);        if (fromId && toId) {
+            // Convert PKR budgets to USD for API calls, but keep original PKR values for display
+            const flightBudgetUSD = Math.floor(parseInt(budget.total) / USD_TO_PKR_RATE);
+            const hotelBudgetUSD = Math.floor(parseInt(budget.hotel) / USD_TO_PKR_RATE);
+            
             // Prepare search results
             const searchResults = {
                 fromId,
@@ -175,28 +182,54 @@ const BudgetPlanner = () => {
                 departureDate,
                 returnDate: calculatedReturnDate, // Use calculated returnDate
                 cabinClass,
-                budget: budget.total,
-                hotelBudget: budget.hotel, // Pass hotel budget to TripDetails
+                budget: flightBudgetUSD, // USD budget for API
+                hotelBudget: hotelBudgetUSD, // USD hotel budget for API
+                budgetPKR: budget.total, // Original PKR budget for display
+                hotelBudgetPKR: budget.hotel, // Original PKR hotel budget for display
                 selectedFlight,
                 selectedHotel,
                 daysOfStay,
                 travelCategory,
+                USD_TO_PKR_RATE, // Pass conversion rate to child components
             };
 
             // Set search results to state
-            setSearchResults(searchResults);
-        } else {
-            setError("Please enter valid departure and arrival cities.");
+            setSearchResults(searchResults);        } else {
+            if (!fromId && !toId) {
+                setError("Please enter valid departure and arrival cities. Both city names could not be recognized.");
+            } else if (!fromId) {
+                setError(`Could not find an airport for departure city "${from}". Please check spelling or try another city.`);
+            } else if (!toId) {
+                setError(`Could not find an airport for arrival city "${to}". Please check spelling or try another city.`);
+            } else {
+                setError("An unexpected error occurred. Please try again.");
+            }
+            console.log("Search failed with fromId:", fromId, "and toId:", toId);
         }
 
         setLoading(false); // Stop loading effect
-    };
-
-    // Fetch airport ID for a city
+    };// Fetch airport ID for a city
     const fetchAirportId = async (city) => {
         if (!city) return null;
 
-        const url = `https://${API_HOST}/api/v1/flights/searchDestination?query=${city}`;
+        // Handle special cases directly
+        if (city.includes("Islamabad") || city === "ISB") {
+            console.log("Special case: Using Islamabad International Airport ID directly");
+            return "ISB.AIRPORT";
+        }
+        if (city.includes("Lahore") || city === "LHE") {
+            console.log("Special case: Using Lahore International Airport ID directly");
+            return "LHE.AIRPORT";
+        }
+        if (city.includes("Karachi") || city === "KHI") {
+            console.log("Special case: Using Karachi International Airport ID directly");
+            return "KHI.AIRPORT";
+        }
+
+        console.log(`Fetching airport ID for city: "${city}"`);
+        const url = `https://${API_HOST}/api/v1/flights/searchDestination?query=${encodeURIComponent(city)}`;
+        console.log(`API request URL: ${url}`);
+        
         const options = {
             method: "GET",
             headers: {
@@ -208,14 +241,35 @@ const BudgetPlanner = () => {
         try {
             const response = await fetch(url, options);
             const result = await response.json();
-
-            if (result?.data?.length > 0) {
+            console.log(`API response for "${city}":`, result);            if (result?.data?.length > 0) {
+                console.log(`Found airport ID for "${city}": ${result.data[0].id}`);
                 return result.data[0].id;
             } else {
-                throw new Error(`No airport found for "${city}"`);
+                console.log(`No airport found for "${city}" in API response`);
+                
+                // Try to extract a city name if the input might be an airport name
+                const cityMatch = city.match(/^(.*?)\s+(?:International\s+)?Airport/i);
+                if (cityMatch && cityMatch[1]) {
+                    const extractedCity = cityMatch[1].trim();
+                    console.log(`Trying with extracted city name: "${extractedCity}"`);
+                    
+                    const secondUrl = `https://${API_HOST}/api/v1/flights/searchDestination?query=${encodeURIComponent(extractedCity)}`;
+                    console.log(`Second attempt API request URL: ${secondUrl}`);
+                    
+                    const secondResponse = await fetch(secondUrl, options);
+                    const secondResult = await secondResponse.json();
+                    console.log(`Second API response for "${extractedCity}":`, secondResult);
+                    
+                    if (secondResult?.data?.length > 0) {
+                        console.log(`Found airport ID for extracted city "${extractedCity}": ${secondResult.data[0].id}`);
+                        return secondResult.data[0].id;
+                    }
+                }
+                  console.log(`All attempts failed to find airport for "${city}"`);
+                return null;
             }
         } catch (error) {
-            setError(`Could not find an airport for "${city}"`);
+            console.error(`Error fetching airport ID for "${city}":`, error);
             return null;
         }
     };
@@ -409,8 +463,7 @@ const BudgetPlanner = () => {
                     </div>
 
                     {/* Combined Budget and Days of Stay row */}
-                    <div className="md:col-span-8 grid grid-cols-3 gap-4">
-                        <div>
+                    <div className="md:col-span-8 grid grid-cols-3 gap-4">                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Flight Budget (PKR)
                             </label>
@@ -418,7 +471,7 @@ const BudgetPlanner = () => {
                                 type="number"
                                 value={budget.total}
                                 onChange={handleBudgetChange}
-                                placeholder="Total Budget"
+                                placeholder="Total Budget in PKR"
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
                         </div>
@@ -430,7 +483,7 @@ const BudgetPlanner = () => {
                                 type="number"
                                 value={budget.hotel}
                                 onChange={handleHotelBudgetChange}
-                                placeholder="Hotel Budget"
+                                placeholder="Hotel Budget in PKR"
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
                         </div>

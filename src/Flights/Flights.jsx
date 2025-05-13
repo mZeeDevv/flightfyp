@@ -5,6 +5,13 @@ import { logUserActivity } from "../services/LoggingService"; // Import logging 
 
 const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
 const API_HOST = "booking-com15.p.rapidapi.com";
+const USD_TO_PKR_RATE = 280; // Conversion rate: 1 USD = 280 PKR
+
+// Utility function to convert USD to PKR
+const convertUsdToPkr = (usdAmount) => {
+  if (!usdAmount || isNaN(usdAmount)) return "N/A";
+  return Math.round(usdAmount * USD_TO_PKR_RATE);
+};
 
 export default function Flights() {
   const location = useLocation();
@@ -26,7 +33,6 @@ export default function Flights() {
   // Add sorting state
   const [sortOption, setSortOption] = useState("recommended");
   const [sortedFlights, setSortedFlights] = useState([]);
-
   // Function to handle viewing flight details in sidebar
   const handleViewFlightDetails = (token) => {
     setFlightDetailsToken(token);
@@ -42,7 +48,8 @@ export default function Flights() {
     setFlightDetailsError("");
     setFlightDetailsData(null);
     
-    const url = `https://${API_HOST}/api/v1/flights/getFlightDetails?token=${token}&currency_code=INR`;
+    // Keep using USD currency in API calls since PKR is not supported
+    const url = `https://${API_HOST}/api/v1/flights/getFlightDetails?token=${token}&currency_code=USD`;
     const options = {
       method: "GET",
       headers: {
@@ -73,11 +80,14 @@ export default function Flights() {
   const closeFlightDetailsSidebar = () => {
     setShowFlightDetailsSidebar(false);
   };
-
   // Function to handle proceed to payment
   const handlePaymentClick = () => {
     if (!flightDetailsData) return;
 
+    // Get price in USD and PKR
+    const usdPrice = flightDetailsData.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || 'N/A';
+    const pkrPrice = convertUsdToPkr(usdPrice);
+    
     // Log the flight booking activity
     const flightDetails = {
       from: flightDetailsData.segments?.[0]?.departureAirport?.name || 'N/A',
@@ -85,14 +95,15 @@ export default function Flights() {
       departureTime: flightDetailsData.segments?.[0]?.departureTime || 'N/A',
       arrivalTime: flightDetailsData.segments?.[0]?.arrivalTime || 'N/A',
       flightNumber: flightDetailsData.segments?.[0]?.legs?.[0]?.flightNumber || 'N/A',
-      price: flightDetailsData.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || 'N/A'
+      price: pkrPrice // Send the PKR price for logging
     };
     
     logUserActivity('booked', 'flight', flightDetails);
     
     navigate('/payment', { 
       state: { 
-        amount: flightDetailsData.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units,
+        amount: pkrPrice, // Send PKR amount to payment page
+        amountUsd: usdPrice, // Also send USD amount in case it's needed
         flightNumber: flightDetailsData.segments?.[0]?.legs?.[0]?.flightNumber,
         token: flightDetailsToken,
         apiKey: RAPIDAPI_KEY
@@ -105,9 +116,7 @@ export default function Flights() {
       if (!fromId || !toId || !departureDate) {
         setError("Missing required search parameters.");
         return;
-      }
-
-      let url = `https://${API_HOST}/api/v1/flights/searchFlights?fromId=${fromId}&toId=${toId}&departDate=${departureDate}&currency_code=INR`;
+      }      let url = `https://${API_HOST}/api/v1/flights/searchFlights?fromId=${fromId}&toId=${toId}&departDate=${departureDate}&currency_code=USD`;
       if (returnDate) url += `&returnDate=${returnDate}`;
       if (cabinClass !== "Do not include in request") url += `&cabinClass=${cabinClass}`;
 
@@ -335,10 +344,9 @@ export default function Flights() {
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="text-lg font-semibold">{deal.key}</p>
-                  </div>
-                  <div>
+                  </div>                  <div>
                     <p className="text-lg font-bold text-blue-600">
-                      RS {`${deal.price?.units || 0}.${String(0).padStart(2, "0")}`}
+                      RS {convertUsdToPkr(deal.price?.units) || 0}
                     </p>
                   </div>
                 </div>
@@ -536,12 +544,10 @@ export default function Flights() {
                         </>
                       )}
                     </div>
-                  </div>
-
-                  {/* Price */}
+                  </div>                  {/* Price */}
                   <div className="bg-gray-100 p-3 rounded-md mb-4">
                     <p className="text-gray-700 font-semibold">Total Price:</p>
-                    <p className="text-xl font-bold text-blue-600">RS. {price}</p>
+                    <p className="text-xl font-bold text-blue-600">RS. {convertUsdToPkr(price)}</p>
                   </div>
                   <button
                     onClick={() => handleViewFlightDetails(deal.token)}
@@ -615,13 +621,11 @@ export default function Flights() {
                             <p className="text-gray-600">{flightDetailsData.segments?.[0]?.arrivalTime || "N/A"}</p>
                           </div>
                         </div>
-                      </div>
-
-                      {/* Price */}
+                      </div>                      {/* Price */}
                       <div className="border-b pb-4">
                         <h2 className="text-xl font-semibold">Price</h2>
                         <p className="text-green-600 font-bold text-xl">
-                          RS. {flightDetailsData.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || "N/A"}
+                          RS. {convertUsdToPkr(flightDetailsData.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units) || "N/A"}
                         </p>
                       </div>
 

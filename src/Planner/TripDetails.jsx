@@ -10,6 +10,9 @@ import BookTrip from "../Components/BookTrip";
 const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
 const API_HOST = "booking-com15.p.rapidapi.com";
 
+// Define USD to PKR conversion rate
+const USD_TO_PKR_RATE = 280;
+
 const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
     const navigate = useNavigate();
     const uid = localStorage.getItem("userId");
@@ -49,26 +52,44 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
     const [totalSelectedPrice, setTotalSelectedPrice] = useState({
         flight: 0,
         hotel: 0
-    });
-
-    const handleFlightClick = (token, price, flightData) => {
+    });    const handleFlightClick = (token, price, flightData) => {
         setSelectedFlightId(token);
         setSelectedFlight(flightData);
+        
+        // Store original USD price
+        const usdPrice = parseInt(price) || 0;
+        
         setTotalSelectedPrice(prev => ({
             ...prev,
-            flight: parseInt(price) || 0
+            flight: usdPrice
         }));
-        onFlightSelect(token, price);
+        
+        // Pass both USD and PKR prices to parent component
+        onFlightSelect(token, price, {
+            usd: usdPrice,
+            pkr: usdPrice * USD_TO_PKR_RATE
+        });
     };
     
     const handleHotelClick = (hotelId, price, hotelData) => {
         setSelectedHotelId(hotelId);
         setSelectedHotel(hotelData);
+        
+        // Store original USD price
+        const usdPrice = parseInt(price) || 0;
+        
         setTotalSelectedPrice(prev => ({
             ...prev,
-            hotel: parseInt(price) || 0
+            hotel: usdPrice
         }));
-        onHotelSelect(hotelId, price);
+        
+        // Pass both USD and PKR prices to parent component
+        onHotelSelect(hotelId, price, {
+            usd: usdPrice,
+            pkr: usdPrice * USD_TO_PKR_RATE,
+            totalUsd: usdPrice * (daysOfStay || 1),
+            totalPkr: usdPrice * USD_TO_PKR_RATE * (daysOfStay || 1)
+        });
     };
 
     const fetchFlights = async () => {
@@ -109,7 +130,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                 
                 if (filteredFlights.length === 0) {
                     toast.warn("No flights found within your budget. Please consider increasing your budget.");
-                    setError("No flights available within your budget of RS. " + budget);
+                    setError("No flights available within your budget of Rs. " + (budget * USD_TO_PKR_RATE));
                     setFlightOffers([]);
                     
                     const sortedByPrice = [...result.data.flightOffers].sort((a, b) => {
@@ -120,7 +141,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                     
                     if (sortedByPrice.length > 0) {
                         const cheapestPrice = sortedByPrice[0].travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units;
-                        toast.info(`The cheapest available flight costs RS. ${cheapestPrice}`);
+                        toast.info(`The cheapest available flight costs Rs. ${cheapestPrice * USD_TO_PKR_RATE} PKR`);
                     }
                 } else {
                     setFlightOffers(filteredFlights);
@@ -236,7 +257,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                 
                 if (filteredHotels.length === 0) {
                     toast.warn("No hotels found within your budget. Please consider increasing your hotel budget.");
-                    setError("No hotels available within your budget of RS. " + hotelBudget + " for " + daysOfStay + " nights.");
+                    setError("No hotels available within your budget of Rs. " + (hotelBudget * USD_TO_PKR_RATE) + " PKR for " + daysOfStay + " nights.");
                     setHotelOffers([]);
                     
                     const sortedByPrice = [...result.data.hotels].sort((a, b) => {
@@ -248,7 +269,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                     if (sortedByPrice.length > 0) {
                         const cheapestPricePerNight = sortedByPrice[0].property?.priceBreakdown?.grossPrice?.value;
                         const totalCheapestPrice = cheapestPricePerNight * (daysOfStay || 1);
-                        toast.info(`The cheapest available hotel costs RS. ${Math.floor(cheapestPricePerNight)} per night (Total: RS. ${Math.floor(totalCheapestPrice)} for ${daysOfStay} nights)`);
+                        toast.info(`The cheapest available hotel costs Rs. ${Math.floor(cheapestPricePerNight * USD_TO_PKR_RATE)} PKR per night (Total: Rs. ${Math.floor(totalCheapestPrice * USD_TO_PKR_RATE)} PKR for ${daysOfStay} nights)`);
                     }
                 } else {
                     setHotelOffers(filteredHotels);
@@ -286,22 +307,35 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
 
     const getGoogleMapsLink = (latitude, longitude) => {
         return `https://www.google.com/maps?q=${latitude},${longitude}`;
-    };
-
-    const calculateSavings = () => {
-        const totalHotelPrice = totalSelectedPrice.hotel * (daysOfStay || 1);
-        const totalSpent = totalSelectedPrice.flight + totalHotelPrice;
+    };    const calculateSavings = () => {
+        // Get the PKR budget values from searchResults if available
+        const budgetPKR = searchResults?.budgetPKR || (parseInt(budget) * USD_TO_PKR_RATE);
+        const hotelBudgetPKR = searchResults?.hotelBudgetPKR || (parseInt(hotelBudget) * USD_TO_PKR_RATE);
+        const totalBudgetPKR = budgetPKR + hotelBudgetPKR;
         
+        // Calculate spending in PKR
+        const totalHotelPricePKR = totalSelectedPrice.hotel * (daysOfStay || 1);
+        const totalSpentPKR = totalSelectedPrice.flight + totalHotelPricePKR;
+        
+        // Calculate savings in PKR
+        let savingsPKR = totalBudgetPKR - totalSpentPKR;
+        savingsPKR = Math.max(0, savingsPKR);
+        const savingsPercentage = totalBudgetPKR > 0 ? ((savingsPKR / totalBudgetPKR) * 100).toFixed(1) : "0.0";
+        
+        // Calculate USD values for internal use (but not for display)
         const totalBudget = parseInt(budget) + parseInt(hotelBudget);
-        
-        let savings = totalBudget - totalSpent;
-        savings = Math.max(0, savings);
-        const savingsPercentage = totalBudget > 0 ? ((savings / totalBudget) * 100).toFixed(1) : "0.0";
+        const totalHotelPrice = totalSelectedPrice.hotel / USD_TO_PKR_RATE * (daysOfStay || 1);
+        const totalSpent = totalSelectedPrice.flight / USD_TO_PKR_RATE + totalHotelPrice;
+        const savings = Math.max(0, totalBudget - totalSpent);
         
         return {
             amount: savings,
+            amountPKR: savingsPKR,
             percentage: savingsPercentage,
-            totalBudget: totalBudget
+            totalBudget: totalBudget,
+            totalBudgetPKR: totalBudgetPKR,
+            totalSpent: totalSpent,
+            totalSpentPKR: totalSpentPKR
         };
     };
 
@@ -434,7 +468,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                     <div className="flex space-x-2 mt-2 sm:mt-0">
                                         <div className="bg-blue-900 bg-opacity-50 px-4 py-1.5 rounded-full">
                                             <span className="text-sm font-semibold text-blue-200">Budget: </span>
-                                            <span className="text-sm font-bold text-white">RS. {budget}</span>
+                                            <span className="text-sm font-bold text-white">Rs. {searchResults?.budgetPKR || (budget * USD_TO_PKR_RATE)} PKR</span>
                                         </div>
                                     </div>
                                 </div>
@@ -506,11 +540,12 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                                         <p className="text-xs font-medium">Arrival</p>
                                                         <p className="text-xs">{arrivalTime}</p>
                                                     </div>
-                                                </div>
-                                                <div className="bg-gray-700 p-2 rounded-lg mb-3 shadow-inner">
+                                                </div>                                                <div className="bg-gray-700 p-2 rounded-lg mb-3 shadow-inner">
                                                     <div className="flex justify-between items-center">
                                                         <p className="text-xs text-gray-300 font-semibold">Price:</p>
-                                                        <p className="text-sm font-bold text-blue-400">RS. {price}</p>
+                                                        <div className="text-right">
+                                                            <p className="text-sm font-bold text-green-400">Rs. {price * USD_TO_PKR_RATE} PKR</p>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <button 
@@ -535,7 +570,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                     <h3 className="text-xl font-semibold text-gray-300 mb-2">No Flight Options Available</h3>
-                                    <p className="text-gray-400 text-center">No flight offers found within your budget of RS. {budget}</p>
+                                    <p className="text-gray-400 text-center">No flight offers found within your budget of Rs. {searchResults?.budgetPKR || (budget * USD_TO_PKR_RATE)} PKR</p>
                                     <p className="text-gray-500 text-sm mt-2">Try increasing your flight budget for more options</p>
                                 </div>
                             </div>
@@ -550,7 +585,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                     <div className="flex space-x-2 mt-2 sm:mt-0">
                                         <div className="bg-purple-900 bg-opacity-50 px-4 py-1.5 rounded-full flex items-center">
                                             <span className="text-sm font-semibold text-purple-200">Budget: </span>
-                                            <span className="text-sm font-bold text-white ml-1">RS. {hotelBudget}</span>
+                                            <span className="text-sm font-bold text-white ml-1">Rs. {searchResults?.hotelBudgetPKR || (hotelBudget * USD_TO_PKR_RATE)} PKR</span>
                                         </div>
                                         <div className="bg-purple-900 bg-opacity-50 px-4 py-1.5 rounded-full">
                                             <span className="text-sm font-semibold text-purple-200">Stay: </span>
@@ -596,17 +631,19 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                                     <span className="text-xs text-gray-400 ml-2">
                                                         ({hotel.property.reviewCount} reviews)
                                                     </span>
-                                                </div>
-                                                <div className="text-xs text-gray-300 mb-2">
-                                                    <div className="flex justify-between items-center">
+                                                </div>                                                <div className="text-xs text-gray-300 mb-2">                                                    <div className="flex justify-between items-center">
                                                         <span>Price per night:</span>
-                                                        <span className="font-semibold text-white">RS. {Math.floor(hotel.property.priceBreakdown.grossPrice.value)}</span>
+                                                        <span className="font-semibold text-white">
+                                                            Rs. {Math.floor(hotel.property.priceBreakdown.grossPrice.value * USD_TO_PKR_RATE)} PKR
+                                                        </span>
                                                     </div>
                                                     <div className="flex justify-between items-center bg-gray-700 p-2 mt-2 rounded-lg shadow-inner">
                                                         <span>Total ({daysOfStay || 1} nights):</span>
-                                                        <span className="font-bold text-purple-400">
-                                                            RS. {Math.floor(hotel.property.priceBreakdown.grossPrice.value) * (daysOfStay || 1)}
-                                                        </span>
+                                                        <div className="text-right">
+                                                            <div className="font-bold text-green-400">
+                                                                Rs. {Math.floor(hotel.property.priceBreakdown.grossPrice.value * USD_TO_PKR_RATE) * (daysOfStay || 1)} PKR
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div className="flex justify-between items-center mt-3">
@@ -638,7 +675,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                     <h3 className="text-xl font-semibold text-gray-300 mb-2">No Hotel Options Available</h3>
-                                    <p className="text-gray-400 text-center">No hotel offers found within your budget of RS. {hotelBudget} for {daysOfStay || 1} night(s)</p>
+                                    <p className="text-gray-400 text-center">No hotel offers found within your budget of Rs. {searchResults?.hotelBudgetPKR || (hotelBudget * USD_TO_PKR_RATE)} PKR for {daysOfStay || 1} night(s)</p>
                                     <p className="text-gray-500 text-sm mt-2">Try increasing your hotel budget for more options</p>
                                 </div>
                             </div>
@@ -671,39 +708,39 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                     <div className="flex flex-col md:flex-row md:justify-between md:items-center">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 md:mb-0">
                             <div className="bg-gray-800 p-2 rounded-lg">
-                                <div className="grid grid-cols-2 gap-x-4">
-                                    <p className="text-xs text-gray-400">Flight Budget:</p>
-                                    <p className="text-xs font-bold text-white text-right">RS. {budget}</p>
+                                <div className="grid grid-cols-2 gap-x-4">                                    <p className="text-xs text-gray-400">Flight Budget:</p>
+                                    <p className="text-xs font-bold text-white text-right">Rs. {searchResults?.budgetPKR || (budget * USD_TO_PKR_RATE)}</p>
                                 
                                     <p className="text-xs text-gray-400">Selected Price:</p>
-                                    <p className="text-xs font-bold text-blue-400 text-right">
-                                        RS. {totalSelectedPrice.flight || "0"}
+                                    <p className="text-xs font-bold text-green-400 text-right">
+                                        Rs. {totalSelectedPrice.flight || "0"}
                                     </p>
                                 </div>
                             </div>
                             
                             <div className="bg-gray-800 p-2 rounded-lg">
-                                <div className="grid grid-cols-2 gap-x-4">
-                                    <p className="text-xs text-gray-400">Hotel Budget:</p>
-                                    <p className="text-xs font-bold text-white text-right">RS. {hotelBudget}</p>
+                                <div className="grid grid-cols-2 gap-x-4">                                    <p className="text-xs text-gray-400">Hotel Budget:</p>
+                                    <p className="text-xs font-bold text-white text-right">Rs. {searchResults?.hotelBudgetPKR || (hotelBudget * USD_TO_PKR_RATE)}</p>
                                     
                                     <p className="text-xs text-gray-400">Selected Hotel:</p>
-                                    <p className="text-xs font-bold text-purple-400 text-right">
-                                        RS. {totalSelectedPrice.hotel * (daysOfStay || 1) || "0"}
+                                    <p className="text-xs font-bold text-green-400 text-right">
+                                        Rs. {totalSelectedPrice.hotel * (daysOfStay || 1) || "0"}
                                         <span className="text-gray-500 text-xs"> ({daysOfStay || 1} nights)</span>
                                     </p>
                                 </div>
                             </div>
                             
-                            <div className="bg-gray-800 p-2 rounded-lg">
-                                <div className="grid grid-cols-2 gap-x-4">
-                                    <p className="text-xs text-gray-400">Total Budget:</p>
-                                    <p className="text-xs font-bold text-white text-right">RS. {calculateSavings().totalBudget}</p>
+                            <div className="bg-gray-800 p-2 rounded-lg">                                <div className="grid grid-cols-2 gap-x-4">                                    <p className="text-xs text-gray-400">Total Budget:</p>
+                                    <div className="text-right">
+                                        <p className="text-xs font-bold text-white">Rs. {calculateSavings().totalBudgetPKR} PKR</p>
+                                    </div>
                                     
                                     <p className="text-xs text-gray-400">Total Savings:</p>
-                                    <p className="text-xs font-bold text-green-400 text-right">
-                                        RS. {calculateSavings().amount} ({calculateSavings().percentage}%)
-                                    </p>
+                                    <div className="text-right">
+                                        <p className="text-xs font-bold text-green-400">
+                                            Rs. {calculateSavings().amountPKR} PKR ({calculateSavings().percentage}%)
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>

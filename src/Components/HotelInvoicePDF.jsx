@@ -1,5 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { getAuth } from 'firebase/auth';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+
+// Define USD to PKR conversion rate
+const USD_TO_PKR_RATE = 280;
 
 // Create styles
 const styles = StyleSheet.create({
@@ -91,6 +96,46 @@ const styles = StyleSheet.create({
 
 // Create Document Component
 const HotelInvoicePDF = ({ bookingDetails, transactionId, paymentMethod }) => {
+  const [userName, setUserName] = useState('');
+  const auth = getAuth();
+  const currentUser = auth.currentUser;
+
+  // Get current user's name and fetch user data on component mount
+  useEffect(() => {
+    const fetchUserData = async () => {
+      // First priority: Use current authenticated user's display name
+      if (currentUser && currentUser.displayName) {
+        console.log("Using current user display name:", currentUser.displayName);
+        setUserName(currentUser.displayName);
+        return;
+      }
+      
+      // Second priority: Use card name from payment details
+      if (bookingDetails?.paymentDetails?.cardName) {
+        console.log("Using card name:", bookingDetails.paymentDetails.cardName);
+        setUserName(bookingDetails.paymentDetails.cardName);
+        return;
+      }
+
+      // Third priority: Fetch from Firestore using userId
+      if (bookingDetails?.userId) {
+        try {
+          const db = getFirestore();
+          const userDoc = await getDoc(doc(db, "users", bookingDetails.userId));
+          
+          if (userDoc.exists()) {
+            console.log("Using Firestore name:", userDoc.data().name);
+            setUserName(userDoc.data().name);
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+        }
+      }
+    };
+    
+    fetchUserData();
+  }, [bookingDetails?.userId, auth, currentUser, bookingDetails?.paymentDetails?.cardName]);
+
   const formatDate = (dateString) => {
     try {
       const date = new Date(dateString);
@@ -131,14 +176,16 @@ const HotelInvoicePDF = ({ bookingDetails, transactionId, paymentMethod }) => {
           </View>
           {/* Placeholder for logo */}
           <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#3b82f6' }}>JetSeeker</Text>
-        </View>
-
-        {/* Customer Information */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Customer Information</Text>
-          <View style={styles.row}>
-            <Text style={styles.label}>User ID:</Text>
-            <Text style={styles.value}>{bookingDetails.userId || 'N/A'}</Text>
+        </View>        {/* Customer Information */}
+        <View style={styles.section}>          <Text style={styles.sectionTitle}>Customer Information</Text>          <View style={styles.row}>
+            <Text style={styles.label}>Name:</Text>
+            <Text style={styles.value}>{
+              // Display name priority: userName (set in useEffect) > cardName > current user's display name
+              userName || 
+              bookingDetails?.paymentDetails?.cardName || 
+              (auth.currentUser ? auth.currentUser.displayName : null) || 
+              'Customer'
+            }</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Booking Date:</Text>
@@ -153,10 +200,7 @@ const HotelInvoicePDF = ({ bookingDetails, transactionId, paymentMethod }) => {
             <Text style={styles.label}>Hotel Name:</Text>
             <Text style={styles.value}>{bookingDetails.hotel.name || 'N/A'}</Text>
           </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Location:</Text>
-            <Text style={styles.value}>{bookingDetails.hotel.location || 'N/A'}</Text>
-          </View>
+          
           <View style={styles.row}>
             <Text style={styles.label}>Rating:</Text>
             <Text style={styles.value}>{bookingDetails.hotel.rating || 'N/A'}</Text>
@@ -175,15 +219,14 @@ const HotelInvoicePDF = ({ bookingDetails, transactionId, paymentMethod }) => {
             <View style={styles.column}>
               <Text style={styles.label}>Duration:</Text>
               <Text style={styles.value}>{bookingDetails.hotel.daysOfStay || 1} {bookingDetails.hotel.daysOfStay === 1 ? 'night' : 'nights'}</Text>
-            </View>
-            <View style={styles.column}>
-              <Text style={styles.label}>Price per Night:</Text>
-              <Text style={styles.value}>RS. {bookingDetails.hotel.pricePerNight * 270 || 0}</Text>
+            </View>            <View style={styles.column}>              <Text style={styles.label}>Price per Night:</Text>
+              <Text style={styles.value}>
+                ${bookingDetails.hotel.pricePerNight || 0} USD / 
+                Rs. {(bookingDetails.hotel.pricePerNight * USD_TO_PKR_RATE).toFixed(0) || 0} PKR
+              </Text>
             </View>
           </View>
-        </View>
-
-        {/* Payment Information */}
+        </View>        {/* Payment Information */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Payment Information</Text>
           <View style={styles.row}>
@@ -199,10 +242,16 @@ const HotelInvoicePDF = ({ bookingDetails, transactionId, paymentMethod }) => {
           <View style={styles.row}>
             <Text style={styles.label}>Status:</Text>
             <Text style={styles.value}>{bookingDetails.paymentDetails?.paymentStatus || 'Confirmed'}</Text>
-          </View>
-          <View style={styles.total}>
-            <Text style={styles.totalLabel}>Total Amount:</Text>
-            <Text style={styles.totalValue}>RS. {bookingDetails.hotel.totalPrice || 0}</Text>
+          </View>          <View style={styles.total}>
+            <Text style={styles.totalLabel}>Total Amount:</Text>            
+            <View>
+              <Text style={styles.totalValue}>
+                ${(bookingDetails.hotel.pricePerNight * (bookingDetails.hotel.daysOfStay || 1)).toFixed(2)} USD
+              </Text>
+              <Text style={styles.totalValue}>
+                Rs. {(bookingDetails.hotel.pricePerNight * USD_TO_PKR_RATE * (bookingDetails.hotel.daysOfStay || 1)).toFixed(0)} PKR
+              </Text>
+            </View>
           </View>
         </View>
 

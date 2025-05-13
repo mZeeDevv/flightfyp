@@ -34,11 +34,9 @@ export default function Home() {
         }, 3000); // Adjust timing based on animation duration
 
         return () => clearTimeout(timer);
-    }, []);
-
-    // Dynamic heading animation (word-by-word replacement)
+    }, []);    // Dynamic heading animation (word-by-word replacement)
     useEffect(() => {
-        const headings = ["Flight", "Car", "Hotel"];
+        const headings = ["Flight", "Hotel"];
         let index = 0;
 
         const interval = setInterval(() => {

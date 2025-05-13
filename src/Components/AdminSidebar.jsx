@@ -29,7 +29,7 @@ export default function AdminSidebar({ currentPath }) {
     { path: '/admin/reports', name: 'Reports', icon: <FaChartBar /> },
     { path: '/admin/ml-analytics', name: 'ML Analytics', icon: <FaRobot /> },
     { path: '/admin/chat', name: 'Live Chat', icon: <FaHeadset /> },
-    { path: '/admin/settings', name: 'Settings', icon: <FaCog /> },
+
   ];
 
   return (

@@ -6,7 +6,7 @@ import { getAuth, deleteUser, reauthenticateWithCredential, EmailAuthProvider } 
 import { toast } from "react-toastify";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import "react-toastify/dist/ReactToastify.css";
-import { FaPlane, FaHotel, FaUser, FaLock, FaEdit, FaSave, FaSuitcase, FaTrash } from "react-icons/fa";
+import { FaPlane, FaHotel, FaUser, FaLock, FaEdit, FaSave, FaSuitcase, FaTrash, FaEye, FaEyeSlash } from "react-icons/fa";
 import Spinner from '../Components/Spinner'; // Import the Spinner component
 import DashboardData from '../UsesDashboard/Dashboard'; // Import the DashboardData component
 
@@ -15,8 +15,8 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [updatedName, setUpdatedName] = useState("");
-  const [updatedTravelClass, setUpdatedTravelClass] = useState("");
-  const [newPassword, setNewPassword] = useState("");
+  const [updatedTravelClass, setUpdatedTravelClass] = useState("");  const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [profilePicture, setProfilePicture] = useState(null);
   const [profilePictureUrl, setProfilePictureUrl] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -125,13 +125,33 @@ export default function Profile() {
         console.error("Error uploading profile picture:", error);
         setUploading(false);
       },
-      () => {
-        // Upload completed successfully
-        getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+      async () => {
+        try {
+          // Get download URL after upload completes
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          
+          // Update state with new URL
           setProfilePictureUrl(downloadURL);
-          setUploading(false);
+          
+          // Update user document in Firestore with the new profile picture URL
+          const userRef = doc(db, "users", userId);
+          await updateDoc(userRef, {
+            profilePictureUrl: downloadURL
+          });
+          
+          // Update local user data state
+          setUserData(prevData => ({
+            ...prevData,
+            profilePictureUrl: downloadURL
+          }));
+          
           toast.success("Profile picture uploaded successfully");
-        });
+        } catch (error) {
+          console.error("Error saving profile picture URL:", error);
+          toast.error("Failed to update profile picture");
+        } finally {
+          setUploading(false);
+        }
       }
     );
   };
@@ -336,18 +356,26 @@ export default function Profile() {
                 </div>
               </>
             )}
-          </div>
-
-          {/* Change Password Section */}
+          </div>          {/* Change Password Section */}
           <div className="mb-8">
             <h3 className="text-2xl font-bold text-gray-800 mb-4">Change Password</h3>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="New Password"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="New Password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+              </button>
+            </div>
             <button
               onClick={handleChangePassword}
               className="w-full bg-green-600 text-white p-3 rounded-lg mt-4 hover:bg-green-700 transition duration-300 flex items-center justify-center"

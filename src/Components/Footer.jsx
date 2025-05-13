@@ -23,8 +23,7 @@ export default function Footer() {
   return (
     <footer className="bg-gradient-to-b from-gray-800 to-gray-900 text-white">
       {/* Main Footer */}
-      <div className="container mx-auto px-4 pt-12 pb-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="container mx-auto px-4 pt-12 pb-8">        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {/* Company Info */}
           <div className="mb-6">
             <div className="flex items-center mb-4">
@@ -61,64 +60,21 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="/airports" className="text-gray-300 hover:text-blue-400 transition-colors duration-300 flex items-center">
+                <Link to="/hotels" className="text-gray-300 hover:text-blue-400 transition-colors duration-300 flex items-center">
                   <FaArrowRight className="mr-2 text-xs" />
-                  Airports
+                  Hotels
                 </Link>
               </li>
               <li>
-                <Link to="/carshire" className="text-gray-300 hover:text-blue-400 transition-colors duration-300 flex items-center">
+                <Link to="/" className="text-gray-300 hover:text-blue-400 transition-colors duration-300 flex items-center">
                   <FaArrowRight className="mr-2 text-xs" />
-                  Car Hire
+                  Flights
                 </Link>
               </li>
               <li>
-                <Link to="/about" className="text-gray-300 hover:text-blue-400 transition-colors duration-300 flex items-center">
+                <Link to="/budget-planner" className="text-gray-300 hover:text-blue-400 transition-colors duration-300 flex items-center">
                   <FaArrowRight className="mr-2 text-xs" />
-                  About Us
-                </Link>
-              </li>
-              <li>
-                <Link to="/contact" className="text-gray-300 hover:text-blue-400 transition-colors duration-300 flex items-center">
-                  <FaArrowRight className="mr-2 text-xs" />
-                  Contact Us
-                </Link>
-              </li>
-            </ul>
-          </div>
-          
-          {/* Services */}
-          <div className="mb-6">
-            <h3 className="text-lg font-bold mb-4 border-b border-gray-700 pb-2">Our Services</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link to="/flights" className="text-gray-300 hover:text-blue-400 transition-colors duration-300 flex items-center">
-                  <FaArrowRight className="mr-2 text-xs" />
-                  Flight Booking
-                </Link>
-              </li>
-              <li>
-                <Link to="/carshire" className="text-gray-300 hover:text-blue-400 transition-colors duration-300 flex items-center">
-                  <FaArrowRight className="mr-2 text-xs" />
-                  Car Rentals
-                </Link>
-              </li>
-              <li>
-                <Link to="/privacy-policy" className="text-gray-300 hover:text-blue-400 transition-colors duration-300 flex items-center">
-                  <FaArrowRight className="mr-2 text-xs" />
-                  Privacy Policy
-                </Link>
-              </li>
-              <li>
-                <Link to="/terms-of-use" className="text-gray-300 hover:text-blue-400 transition-colors duration-300 flex items-center">
-                  <FaArrowRight className="mr-2 text-xs" />
-                  Terms of Use
-                </Link>
-              </li>
-              <li>
-                <Link to="/faq" className="text-gray-300 hover:text-blue-400 transition-colors duration-300 flex items-center">
-                  <FaArrowRight className="mr-2 text-xs" />
-                  FAQ
+                  Budget Planner
                 </Link>
               </li>
             </ul>

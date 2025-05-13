@@ -4,6 +4,9 @@ import "../App.css";
 import { addDoc, collection, updateDoc, doc } from "firebase/firestore";
 import { db } from "../firebase";
 import { getStorage } from "firebase/storage";
+
+// Define USD to PKR conversion rate
+const USD_TO_PKR_RATE = 280;
 import { toast } from "react-toastify";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
@@ -275,9 +278,10 @@ export default function HotelSearch() {
         setProcessingPayment(true);
         const newTransactionId = generateTransactionId();
         setTransactionId(newTransactionId);
-        try {
-            // Calculate total price
+        try {            // Calculate total price in USD
             const totalPrice = Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value) * daysOfStay;
+            // Calculate total price in PKR
+            const totalPricePKR = totalPrice * USD_TO_PKR_RATE;
             
             // Save booking to Firebase
             const bookingDetails = {
@@ -296,9 +300,9 @@ export default function HotelSearch() {
                     imageUrl: selectedHotel.property.photoUrls[0] || "",
                     latitude: selectedHotel.property.latitude,
                     longitude: selectedHotel.property.longitude
-                },
-                paymentDetails: {
+                },                paymentDetails: {
                     cardLast4: cardNumber.slice(-4),
+                    cardName: cardName,
                     paymentMethod: paymentMethod,
                     paymentStatus: "confirmed",
                     amount: totalPrice
@@ -347,11 +351,13 @@ export default function HotelSearch() {
     const generateAndUploadInvoice = async (bookingData, transId, docId) => {
         try {
             setUploadingInvoice(true);
-            
-            // Create the PDF blob
+              // Create the PDF blob
             const invoiceBlob = await pdf(
                 <HotelInvoicePDF 
-                    bookingDetails={bookingData} 
+                    bookingDetails={{
+                        ...bookingData,
+                        customerName: cardName
+                    }} 
                     transactionId={transId}
                     paymentMethod={paymentMethod}
                 />
@@ -641,12 +647,14 @@ export default function HotelSearch() {
                                             <span className="text-gray-700">
                                                 {hotel.property.reviewScore} ({hotel.property.reviewCount} reviews)
                                             </span>
-                                        </div>
-                                        <p className="text-gray-600 mb-1">
-                                            RS. {Math.floor(hotel.property.priceBreakdown.grossPrice.value / daysOfStay) * 270} per night
+                                        </div>                                        <p className="text-gray-600 mb-1">
+                                            ${Math.floor(hotel.property.priceBreakdown.grossPrice.value / daysOfStay)} USD / 
+                                            Rs. {Math.floor(hotel.property.priceBreakdown.grossPrice.value / daysOfStay) * USD_TO_PKR_RATE} PKR per night
                                         </p>
                                         <p className="text-gray-800 font-bold mb-2">
-                                            RS. {Math.floor(hotel.property.priceBreakdown.grossPrice.value) * 270 } total ({daysOfStay} {daysOfStay === 1 ? 'night' : 'nights'})
+                                            ${Math.floor(hotel.property.priceBreakdown.grossPrice.value)} USD / 
+                                            Rs. {Math.floor(hotel.property.priceBreakdown.grossPrice.value) * USD_TO_PKR_RATE} PKR total 
+                                            ({daysOfStay} {daysOfStay === 1 ? 'night' : 'nights'})
                                         </p>
                                         <a
                                             href={getGoogleMapsLink(hotel.property.latitude, hotel.property.longitude)}
@@ -703,9 +711,9 @@ export default function HotelSearch() {
                                         <h4 className="font-bold text-gray-700 mb-2">{selectedHotel.property.name}</h4>
                                         <p className="text-sm text-gray-600 mb-1">Check-in: {arrivalDate}</p>
                                         <p className="text-sm text-gray-600 mb-1">Check-out: {getCheckoutDate()}</p>
-                                        <p className="text-sm text-gray-600 mb-1">Duration: {daysOfStay} {daysOfStay === 1 ? 'night' : 'nights'}</p>
-                                        <p className="text-sm font-bold text-gray-800">
-                                            Total: RS. {Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value) * 270}
+                                        <p className="text-sm text-gray-600 mb-1">Duration: {daysOfStay} {daysOfStay === 1 ? 'night' : 'nights'}</p>                                        <p className="text-sm font-bold text-gray-800">
+                                            Total: ${Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value)} USD / 
+                                            Rs. {Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value) * USD_TO_PKR_RATE} PKR
                                         </p>
                                     </div>
                                     
@@ -726,11 +734,14 @@ export default function HotelSearch() {
                                                 Download Invoice
                                             </a>
                                         ) : (
-                                            bookingData && (
+                            bookingData && (
                                                 <PDFDownloadLink
                                                     document={
                                                         <HotelInvoicePDF 
-                                                            bookingDetails={bookingData} 
+                                                            bookingDetails={{
+                                                                ...bookingData,
+                                                                customerName: cardName
+                                                            }} 
                                                             transactionId={transactionId}
                                                             paymentMethod={paymentMethod}
                                                         />
@@ -765,9 +776,9 @@ export default function HotelSearch() {
                                                 <span className="text-sm text-gray-600">
                                                     {daysOfStay} {daysOfStay === 1 ? 'night' : 'nights'} 
                                                     ({arrivalDate} - {getCheckoutDate()})
-                                                </span>
-                                                <span className="font-bold text-gray-800">
-                                                    RS. {Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value) * 270}
+                                                </span>                                                <span className="font-bold text-gray-800">
+                                                    ${Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value)} USD / 
+                                                    Rs. {Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value) * USD_TO_PKR_RATE} PKR
                                                 </span>
                                             </div>
                                         </div>
