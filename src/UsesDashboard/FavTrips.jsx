@@ -164,7 +164,7 @@ export default function FavoriteTrips() {
                     </div>
                     <div>
                       <p className="text-gray-500 font-medium">Price</p>
-                      <p className="text-gray-800 font-bold">RS. {trip.flight?.amount || 0}</p>
+                      <p className="text-gray-800 font-bold">RS. {Math.floor(trip.flight?.amount || 0)}</p>
                     </div>
                   </div>
                 </div>
@@ -206,11 +206,11 @@ export default function FavoriteTrips() {
                     <div className="flex justify-between">
                       <div>
                         <p className="text-gray-500 font-medium">Price per night</p>
-                        <p className="text-gray-800">RS. {trip.hotel?.pricePerDay || trip.hotel?.price || 0}</p>
+                        <p className="text-gray-800">RS. {Math.floor(trip.hotel?.pricePerDay || trip.hotel?.price || 0)}</p>
                       </div>
                       <div>
                         <p className="text-gray-500 font-medium">Total price</p>
-                        <p className="text-gray-800 font-bold">RS. {trip.hotel?.totalPrice || (trip.hotel?.price || 0) * (trip.hotel?.daysOfStay || 1)}</p>
+                        <p className="text-gray-800 font-bold">RS. {Math.floor(trip.hotel?.totalPrice || (trip.hotel?.price || 0) * (trip.hotel?.daysOfStay || 1))}</p>
                       </div>
                     </div>
                   </div>
@@ -220,9 +220,8 @@ export default function FavoriteTrips() {
                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-gray-500 text-sm font-medium">Total Package Price:</p>
-                      <p className="text-xl font-bold text-green-600">
-                        RS. {(trip.flight?.amount || 0) + (trip.hotel?.totalPrice || trip.hotel?.price || 0)}
+                      <p className="text-gray-500 text-sm font-medium">Total Package Price:</p>                      <p className="text-xl font-bold text-green-600">
+                        RS. {Math.floor((trip.flight?.amount || 0) + (trip.hotel?.totalPrice || trip.hotel?.price || 0))}
                       </p>
                     </div>
                     <button 

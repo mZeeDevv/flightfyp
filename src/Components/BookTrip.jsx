@@ -19,10 +19,16 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
   const [userData, setUserData] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const storage = getStorage();
-  
-  const totalAmount = (tripData.flight?.amount || 0) + (tripData.hotel?.price || 0);
+  // Calculate total amount from flight + hotel based on the actual structure we receive from TripDetails.jsx
+  const hotelTotalPrice = tripData.hotel?.totalPrice || 
+                        (tripData.hotel?.pricePerDay && tripData.hotel?.daysOfStay ? 
+                         tripData.hotel.pricePerDay * tripData.hotel.daysOfStay : 0);
+  const totalAmount = (tripData.flight?.amount || 0) + hotelTotalPrice;
 
+  // Log the tripData to debug pricing issues
   useEffect(() => {
+    console.log("BookTrip received tripData:", JSON.stringify(tripData, null, 2));
+    console.log("Calculated total amount:", totalAmount);
     const auth = getAuth();
     if (!auth.currentUser) {
       setIsAuthenticated(false);
@@ -71,9 +77,26 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
     const blob = await pdf(pdfElement).toBlob();
     return blob;
   };
-
   const saveTripToFirebase = async (transactionId, invoiceUrl) => {
     try {
+      // Detailed logging of all trip data before saving
+      console.log("==== TRIP DATA BEING SAVED TO FIREBASE ====");
+      console.log("Trip data object:", tripData);
+      console.log("Flight data:", {
+        amount: tripData.flight?.amount,
+        token: tripData.flight?.token,
+        departure: tripData.flight?.departure,
+        arrival: tripData.flight?.arrival
+      });
+      console.log("Hotel data:", {
+        id: tripData.hotel?.id,
+        name: tripData.hotel?.name,
+        pricePerDay: tripData.hotel?.pricePerDay,
+        totalPrice: tripData.hotel?.totalPrice,
+        calculatedTotal: (tripData.hotel?.pricePerDay || 0) * (tripData.hotel?.daysOfStay || 1),
+        daysOfStay: tripData.hotel?.daysOfStay
+      });
+      
       const auth = getAuth();
       const user = auth.currentUser;
 
@@ -100,7 +123,19 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
         invoiceUrl: invoiceUrl,
       };
 
-      await addDoc(collection(db, 'user_flights'), flightBooking);
+      await addDoc(collection(db, 'user_flights'), flightBooking);      // Calculate hotel total amount correctly, ensuring it's not zero
+      const hotelPricePerNight = tripData.hotel?.pricePerDay || 0;
+      const hotelDaysOfStay = tripData.hotel?.daysOfStay || 1;
+      const calculatedHotelTotal = hotelPricePerNight * hotelDaysOfStay;
+      
+      // For debugging - explicitly log the price calculation
+      console.log("Hotel price calculation:", {
+        pricePerNight: hotelPricePerNight,
+        daysOfStay: hotelDaysOfStay,
+        calculatedTotal: calculatedHotelTotal,
+        providedTotalPrice: tripData.hotel?.totalPrice,
+        isCalculatedTotalSame: calculatedHotelTotal === tripData.hotel?.totalPrice
+      });
       
       // Save hotel booking
       const hotelBooking = {
@@ -108,7 +143,9 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
         hotelId: tripData.hotel?.id || '',
         transactionId: transactionId,
         hotelName: tripData.hotel?.name || 'N/A',
-        amount: tripData.hotel?.price || 0,
+        amount: tripData.hotel?.totalPrice || calculatedHotelTotal || 0,  // Use totalPrice or calculated total
+        pricePerNight: hotelPricePerNight,
+        daysOfStay: hotelDaysOfStay,
         bookingDate: new Date().toISOString(),
         paymentMethod: paymentMethod,
         checkIn: tripData.flight?.departureTime || 'N/A', // Using flight dates as default
@@ -118,7 +155,29 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
         invoiceUrl: invoiceUrl,
       };
       
+      // Log the exact data that's being saved
+      console.log("Saving hotel booking with data:", JSON.stringify(hotelBooking, null, 2));
+      console.log("Original hotel data in tripData:", {
+        totalPrice: tripData.hotel?.totalPrice,
+        pricePerDay: tripData.hotel?.pricePerDay,
+        price: tripData.hotel?.price, // This property doesn't exist in the passed data
+        daysOfStay: tripData.hotel?.daysOfStay,
+        calculatedTotal: (tripData.hotel?.pricePerDay || 0) * (tripData.hotel?.daysOfStay || 1)
+      });
+      
       await addDoc(collection(db, 'user_hotels'), hotelBooking);
+        // Calculate the proper total amount directly from the flight and hotel data
+      const flightAmount = tripData.flight?.amount || 0;
+      const hotelAmount = tripData.hotel?.totalPrice || 
+                        (tripData.hotel?.pricePerDay ? (tripData.hotel.pricePerDay * tripData.hotel.daysOfStay) : 0);
+      const calculatedTotalAmount = flightAmount + hotelAmount;
+      
+      console.log("Trip booking calculation:", {
+        flightAmount, 
+        hotelAmount,
+        calculatedTotalAmount,
+        originalTotalAmount: totalAmount
+      });
       
       // Save combined trip booking
       const tripBooking = {
@@ -126,7 +185,10 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
         transactionId: transactionId,
         flightId: tripData.flight?.token || '',
         hotelId: tripData.hotel?.id || '',
-        totalAmount: totalAmount,
+        totalAmount: calculatedTotalAmount, // Use the correctly calculated amount
+        flightAmount: flightAmount,
+        hotelAmount: hotelAmount,
+        daysOfStay: tripData.hotel?.daysOfStay || 1,
         bookingDate: new Date().toISOString(),
         paymentMethod: paymentMethod,
         status: 'confirmed',
@@ -141,12 +203,23 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
       throw error;
     }
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setProcessing(true);
 
     try {
+      // Log full trip data again right before processing
+      console.log("Processing booking with trip data:", {
+        flight: tripData.flight,
+        hotel: {
+          ...tripData.hotel,
+          totalPrice: tripData.hotel?.totalPrice || 0,
+          pricePerDay: tripData.hotel?.pricePerDay || 0,
+          daysOfStay: tripData.hotel?.daysOfStay || 1,
+          calculatedTotal: (tripData.hotel?.pricePerDay || 0) * (tripData.hotel?.daysOfStay || 1)
+        }
+      });
+
       // Simulate payment processing
       await new Promise(resolve => setTimeout(resolve, 2000));
       
@@ -201,8 +274,7 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
               </button>
             </div>
             
-            <div className="p-6">
-              <div className="mb-6">
+            <div className="p-6">              <div className="mb-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-2">Trip Summary</h3>
                 
                 <div className="bg-gray-50 p-3 rounded-lg mb-4">
@@ -211,16 +283,26 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
                   </p>
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">Flight Number:</span> {tripData.flight?.flightNumber || 'N/A'}
+                  </p>                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Flight Price:</span> RS. {Math.floor(tripData.flight?.amount * 280 || 0)} PKR
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 mt-2 pt-2 border-t border-gray-200">
                     <span className="font-medium">Hotel:</span> {tripData.hotel?.name || 'N/A'}
                   </p>
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">Location:</span> {tripData.hotel?.location || 'N/A'}
+                  </p>                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Price per night:</span> RS. {Math.floor((tripData.hotel?.pricePerDay || 0) * 280)} PKR
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Stay duration:</span> {tripData.hotel?.daysOfStay || 1} night(s)
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Hotel Total:</span> RS. {Math.floor((tripData.hotel?.totalPrice || 0) * 280)} PKR
                   </p>
                 </div>
                 
-                <p className="text-lg font-bold text-gray-800">Total Amount: RS. {totalAmount}</p>
+                <p className="text-lg font-bold text-gray-800">Total Amount: RS. {Math.floor(totalAmount * 280)} PKR</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">

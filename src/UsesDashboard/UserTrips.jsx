@@ -202,10 +202,9 @@ export default function UserTrips() {
                     <div>
                       <p className="text-gray-500 font-medium">Flight Number</p>
                       <p className="text-gray-800">{trip.flightDetails?.flightNumber || 'N/A'}</p>
-                    </div>
-                    <div>
+                    </div>                    <div>
                       <p className="text-gray-500 font-medium">Price</p>
-                      <p className="text-gray-800 font-bold">RS. {trip.flightDetails?.amount || 0}</p>
+                      <p className="text-gray-800 font-bold">RS. {Math.floor(trip.flightDetails?.amount || 0)}</p>
                     </div>
                   </div>
                 </div>
@@ -249,18 +248,16 @@ export default function UserTrips() {
                             {trip.hotelDetails.daysOfStay} {trip.hotelDetails.daysOfStay === 1 ? 'night' : 'nights'}
                           </p>
                         </div>
-                      )}
-                      {trip.hotelDetails?.pricePerDay && (
+                      )}                      {trip.hotelDetails?.pricePerDay && (
                         <div>
                           <p className="text-gray-500 font-medium">Price per night</p>
-                          <p className="text-gray-800">RS. {trip.hotelDetails.pricePerDay}</p>
+                          <p className="text-gray-800">RS. {Math.floor(trip.hotelDetails.pricePerDay)}</p>
                         </div>
                       )}
-                    </div>
-                    <div>
+                    </div>                    <div>
                       <p className="text-gray-500 font-medium">Total Price</p>
                       <p className="text-gray-800 font-bold">
-                        RS. {trip.hotelDetails?.totalPrice || trip.hotelDetails?.amount || 0}
+                        RS. {Math.floor(trip.hotelDetails?.totalPrice || trip.hotelDetails?.amount || 0)}
                       </p>
                     </div>
                   </div>
@@ -268,11 +265,10 @@ export default function UserTrips() {
 
                 {/* Total section */}
                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <div className="flex justify-between items-center">
-                    <div>
+                  <div className="flex justify-between items-center">                    <div>
                       <p className="text-gray-500 text-sm font-medium">Total Amount:</p>
                       <p className="text-xl font-bold text-green-600">
-                        RS. {trip.totalAmount || 0}
+                        RS. {Math.floor(trip.totalAmount || 0)}
                       </p>
                       <p className="text-xs text-gray-500">
                         Paid via {trip.paymentMethod === 'credit' ? 'Credit Card' : 'Debit Card'}

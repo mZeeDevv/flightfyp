@@ -46,9 +46,7 @@ export default function HotelSearch() {
     const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
     const API_HOST = "booking-com15.p.rapidapi.com";
     const navigate = useNavigate();
-    const uid = localStorage.getItem("userId");
-
-    // Fetch destination suggestions
+    const uid = localStorage.getItem("userId");    // Fetch destination suggestions
     const fetchDestinationSuggestions = async (query) => {
         if (!query) {
             setDestinationSuggestions([]);
@@ -75,7 +73,34 @@ export default function HotelSearch() {
             const result = await response.json();
             
             if (result?.data?.length > 0) {
-                setDestinationSuggestions(result.data);
+                // Filter out hotel suggestions, only keep cities
+                const filteredResults = result.data.filter(suggestion => {
+                    // Only keep items that are cities, regions, airports, not hotels
+                    // Check search_type or desc_type properties
+                    if (suggestion.search_type && suggestion.search_type.toUpperCase() === "HOTEL") {
+                        return false;
+                    }
+                    
+                    // Check if dest_type is available and contains "hotel"
+                    if (suggestion.dest_type && suggestion.dest_type.toLowerCase().includes("hotel")) {
+                        return false;
+                    }
+                    
+                    // Check name property for hotel indicators
+                    if (suggestion.name && (
+                        suggestion.name.toLowerCase().includes(" hotel") ||
+                        suggestion.name.toLowerCase().includes("resort") ||
+                        suggestion.name.toLowerCase().includes("inn") ||
+                        suggestion.name.toLowerCase().includes("suites")
+                    )) {
+                        return false;
+                    }
+                    
+                    return true;
+                });
+                
+                console.log(`Filtered destination suggestions: ${filteredResults.length} cities/regions from ${result.data.length} total results`);
+                setDestinationSuggestions(filteredResults);
             } else {
                 setDestinationSuggestions([]);
             }
@@ -120,11 +145,9 @@ export default function HotelSearch() {
         const arrival = new Date(arrivalDate);
         const departure = new Date(arrival);
         departure.setDate(arrival.getDate() + parseInt(daysOfStay));
-        const departureDate = departure.toISOString().split('T')[0];
-
-        const url = new URL(`https://${API_HOST}/api/v1/hotels/searchHotels`);
+        const departureDate = departure.toISOString().split('T')[0];        const url = new URL(`https://${API_HOST}/api/v1/hotels/searchHotels`);
         url.searchParams.append("dest_id", destId);
-        url.searchParams.append("search_type", "HOTEL");
+        url.searchParams.append("search_type", "CITY");  // Always use CITY for consistent results
         url.searchParams.append("adults", adults);
         url.searchParams.append("children_age", childrenAge.join(","));
         url.searchParams.append("room_qty", roomQty);

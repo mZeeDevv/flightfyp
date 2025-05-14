@@ -41,6 +41,245 @@ const fetchDestinationId = async (city) => {
     }
 };
 
+// Helper function to determine if a string is an airport code
+const isAirportCode = (str) => {
+  // Common patterns for airport codes
+  return (
+    // Three letters followed by .AIRPORT
+    /^[A-Z]{3}\.AIRPORT$/i.test(str) || 
+    // Just three letters (might need additional validation)
+    /^[A-Z]{3}$/i.test(str) ||
+    // IATA format with city/airport pattern
+    /^[A-Z]{3}\.[A-Z]+$/i.test(str)
+  );
+};
+
+// Function to properly search for hotels using the API with improved error handling
+const searchHotels = async (cityOrAirport, arrivalDate, departureDate) => {
+  try {
+    // Check if input might be an airport code
+    if (isAirportCode(cityOrAirport)) {
+      console.log(`Detected airport code: ${cityOrAirport}, will search for the city instead`);
+      
+      // Extract the airport code part if it's in format like "ISB.AIRPORT"
+      const airportCode = cityOrAirport.split('.')[0];
+      
+      // Map of common airport codes to cities (could be expanded)
+      const airportToCity = {
+        'ISB': 'Islamabad',
+        'LHE': 'Lahore',
+        'KHI': 'Karachi',
+        'PEW': 'Peshawar',
+        'UET': 'Quetta',
+        'SKZ': 'Sukkur',
+        'LYP': 'Faisalabad',
+        'MUX': 'Multan',
+        'DXB': 'Dubai',
+        'JFK': 'New York',
+        'LAX': 'Los Angeles',
+        'LHR': 'London',
+        // Add more mappings as needed
+      };
+      
+      if (airportToCity[airportCode]) {
+        console.log(`Converted airport code ${airportCode} to city: ${airportToCity[airportCode]}`);
+        cityOrAirport = airportToCity[airportCode];
+      }
+    }
+    
+    // Step 1: Search for destination to get dest_id and search_type
+    const destinationUrl = `https://${API_HOST}/api/v1/hotels/searchDestination?query=${encodeURIComponent(cityOrAirport)}`;
+    console.log("Searching for destination with URL:", destinationUrl);
+    
+    const options = {
+      method: "GET",
+      headers: {
+        "x-rapidapi-key": RAPIDAPI_KEY,
+        "x-rapidapi-host": API_HOST,
+      },
+    };
+
+    const destinationResponse = await fetch(destinationUrl, options);
+    const destinationResult = await destinationResponse.json();
+    console.log("Destination search response:", destinationResult);
+
+    if (!destinationResult.status || !destinationResult.data || destinationResult.data.length === 0) {
+      console.error("No destination found for query:", cityOrAirport);
+      return [];
+    }
+
+    // Log all the destination types for debugging
+    console.log("Available destination types:", destinationResult.data.map(d => 
+      `${d.name} (Type: ${d.dest_type || 'unknown'}, SearchType: ${d.search_type || 'unknown'})`));
+    
+    // Filter out hotel suggestions, only keep cities and filter by name
+    const filteredResults = destinationResult.data.filter(suggestion => {
+      // Prioritize cities and regions over hotels
+      if (suggestion.dest_type) {
+        const destType = suggestion.dest_type.toLowerCase();
+        // Prefer city, region, and airport results
+        if (destType.includes('city') || destType.includes('region') || destType.includes('airport')) {
+          return true;
+        }
+      }
+        
+      // Exclude hotels by checking search_type
+      if (suggestion.search_type && suggestion.search_type.toUpperCase() === "HOTEL") {
+        return false;
+      }
+      
+      // Check if dest_type is available and contains "hotel"
+      if (suggestion.dest_type && suggestion.dest_type.toLowerCase().includes("hotel")) {
+        return false;
+      }
+      
+      // Check name property for hotel indicators
+      if (suggestion.name && (
+        suggestion.name.toLowerCase().includes(" hotel") ||
+        suggestion.name.toLowerCase().includes("resort") ||
+        suggestion.name.toLowerCase().includes("inn") ||
+        suggestion.name.toLowerCase().includes("suites") ||
+        suggestion.name.toLowerCase().includes(" lodge") ||
+        suggestion.name.toLowerCase().includes(" villa") ||
+        suggestion.name.toLowerCase().includes("apartment")
+      )) {
+        return false;
+      }
+      
+      return true;
+    });
+    
+    if (filteredResults.length === 0) {
+      console.error("No city destinations found for query:", cityOrAirport);
+      return [];
+    }
+    
+    // Get the first city result
+    const destinationData = filteredResults[0];
+    
+    // Always use "CITY" as search_type to avoid API issues with hotels
+    const searchType = "CITY";
+    
+    // Log what we're doing
+    console.log(`Using search_type="CITY" for all hotel searches regardless of destination type`);
+    console.log(`Selected destination: ${destinationData.name} (${destinationData.dest_id})`);
+    
+    // If original value was different, log it for debugging
+    if (destinationData.search_type && destinationData.search_type.toUpperCase() !== "CITY") {
+      console.log(`Note: Original search_type was "${destinationData.search_type}" but we're forcing "CITY"`);
+    }
+    
+    const destId = destinationData.dest_id;
+    console.log(`Found destination: ${destinationData.name}, dest_id: ${destId}, search_type: ${searchType}`);
+
+    // Create proper ISO date strings
+    const arrivalDateStr = new Date(arrivalDate).toISOString().split('T')[0];
+    
+    // For departure date, ensure it's at least one day after arrival
+    let departureDateObj = new Date(departureDate);
+    const arrivalDateObj = new Date(arrivalDate);
+    
+    // If departure is before arrival, add one day to arrival
+    if (departureDateObj <= arrivalDateObj) {
+      departureDateObj = new Date(arrivalDateObj);
+      departureDateObj.setDate(arrivalDateObj.getDate() + 1);
+    }
+    
+    const departureDateStr = departureDateObj.toISOString().split('T')[0];
+    
+    console.log("Using dates:", { arrivalDateStr, departureDateStr });    // Step 2: Use the dest_id to search for hotels with the correct search_type
+    const url = new URL(`https://${API_HOST}/api/v1/hotels/searchHotels`);
+    url.searchParams.append("dest_id", destId);
+    url.searchParams.append("search_type", searchType); // Always CITY for consistent results
+    url.searchParams.append("adults", 1);
+    url.searchParams.append("room_qty", 1);
+    url.searchParams.append("arrival_date", arrivalDateStr);
+    url.searchParams.append("departure_date", departureDateStr);
+    url.searchParams.append("page_number", 1);
+    url.searchParams.append("units", "metric");
+    url.searchParams.append("temperature_unit", "c");
+    url.searchParams.append("languagecode", "en-us");
+    url.searchParams.append("currency_code", "USD");
+    
+    console.log("Searching for hotels with URL:", url.toString());
+    console.log("Search parameters:", {
+      destId,
+      searchType,
+      arrivalDate: arrivalDateStr,
+      departureDate: departureDateStr,
+    });
+
+    const hotelsResponse = await fetch(url, options);
+    
+    // Log response status and headers for debugging
+    console.log("Hotel API Response Status:", hotelsResponse.status);
+    const responseHeaders = {};
+    hotelsResponse.headers.forEach((value, key) => {
+      responseHeaders[key] = value;
+    });
+    console.log("Hotel API Response Headers:", responseHeaders);
+    
+    const hotelsResult = await hotelsResponse.json();
+    console.log("Hotels search response:", hotelsResult);
+
+    // Added more defensive checks
+    if (!hotelsResult) {
+      console.error("Hotel search returned no result");
+      return [];
+    }
+    
+    if (!hotelsResult.status) {      // Check for specific API error messages
+      const errorMsg = hotelsResult.message || "Unknown error";
+      console.error("Hotel search returned error status:", errorMsg);
+      
+      // Log the error but don't try different search_type since we're always using CITY
+      console.error("Hotel search failed with search_type=CITY. Error:", errorMsg);
+      
+      // Try to provide a more helpful error message
+      if (errorMsg.toLowerCase().includes("dest_id")) {
+        console.error("This appears to be a destination ID issue. The API may not recognize this location as a city.");
+      }
+      
+      return [];
+    }
+    
+    if (!hotelsResult.data) {
+      console.error("Hotel search returned no data");
+      return [];
+    }
+    
+    if (!hotelsResult.data.hotels) {
+      console.error("Hotel search data contains no hotels array");
+      return [];
+    }    const hotels = hotelsResult.data.hotels;
+    console.log(`SUCCESS! Found ${hotels.length} hotels for destination "${cityOrAirport}" with search_type=CITY`);
+    
+    // Add some extra debug info for the first few hotels
+    if (hotels.length > 0) {
+      const sample = hotels.slice(0, 2).map(hotel => ({
+        id: hotel.hotel_id,
+        name: hotel.property?.name,
+        price: hotel.property?.priceBreakdown?.grossPrice?.value
+      }));
+      console.log("Sample hotels:", sample);
+    }
+    
+    // Return the hotels data
+    return hotels;
+  } catch (error) {
+    console.error("Error searching for hotels:", error);
+    // Include error information for debugging
+    console.error("Error details:", {
+      message: error.message,
+      stack: error.stack,
+      cityOrAirport,
+      arrivalDate,
+      departureDate
+    });
+    return []; // Return empty array instead of null for easier handling
+  }
+};
+
 const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
     const navigate = useNavigate();
     const uid = localStorage.getItem("userId");
@@ -84,8 +323,8 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         setSelectedFlightId(token);
         setSelectedFlight(flightData);
         
-        // Store original USD price
-        const usdPrice = parseInt(price) || 0;
+        // Store original USD price (use parseFloat instead of parseInt to get decimal values)
+        const usdPrice = parseFloat(price) || 0;
         
         setTotalSelectedPrice(prev => ({
             ...prev,
@@ -95,16 +334,25 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         // Pass both USD and PKR prices to parent component
         onFlightSelect(token, price, {
             usd: usdPrice,
-            pkr: usdPrice * USD_TO_PKR_RATE
+            pkr: Math.floor(usdPrice * USD_TO_PKR_RATE) // Floor the PKR value to remove decimals
         });
     };
-    
-    const handleHotelClick = (hotelId, price, hotelData) => {
+      const handleHotelClick = (hotelId, price, hotelData) => {
         setSelectedHotelId(hotelId);
         setSelectedHotel(hotelData);
         
-        // Store original USD price
-        const usdPrice = parseInt(price) || 0;
+        // Store original USD price (ensure it's a number and has no more than 2 decimal places)
+        const usdPrice = parseFloat(price) || 0;
+        
+        // Log the full hotel data and selected price for debugging
+        console.log("Hotel selected:", {
+            hotelId,
+            price,
+            usdPrice,
+            pkrPrice: Math.floor(usdPrice * USD_TO_PKR_RATE),
+            hotelName: hotelData.property?.name,
+            daysOfStay
+        });
         
         setTotalSelectedPrice(prev => ({
             ...prev,
@@ -114,11 +362,11 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         // Pass both USD and PKR prices to parent component
         onHotelSelect(hotelId, price, {
             usd: usdPrice,
-            pkr: usdPrice * USD_TO_PKR_RATE,
+            pkr: Math.floor(usdPrice * USD_TO_PKR_RATE),
             totalUsd: usdPrice * (daysOfStay || 1),
-            totalPkr: usdPrice * USD_TO_PKR_RATE * (daysOfStay || 1)
+            totalPkr: Math.floor(usdPrice * USD_TO_PKR_RATE * (daysOfStay || 1))
         });
-    };    const fetchFlights = async () => {
+    };const fetchFlights = async () => {
         if (!fromId || !toId || !departureDate) {
             toast.error("Missing required search parameters for flights.");
             return;
@@ -199,168 +447,142 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
             console.error("Error fetching flights:", error);
             setError("Failed to fetch flight data. Please try again later.");
         }
-    };
-
+    };    // No need for separate convertAirportIdToCityName function as it's now integrated in searchHotels
+    
     const fetchHotels = async () => {
         if (!toId || !departureDate) {
             setError("Missing required search parameters for hotels.");
             return;
         }
-
-        let destId = toId;
-        console.log("Original toId value:", toId);
         
         try {
-            if (toId === "Islamabad International Airport" || toId === "ISB.AIRPORT") {
-                destId = "1068102";
-                console.log("Special case: Using specific destination ID for Islamabad:", destId);
-            } else {
-                const searchDestinationUrl = `https://${API_HOST}/api/v1/hotels/searchDestination?query=${toId}`;
-                console.log("Searching for destination ID with URL:", searchDestinationUrl);
-                
-                const searchDestinationOptions = {
-                    method: "GET",
-                    headers: {
-                        "x-rapidapi-key": RAPIDAPI_KEY,
-                        "x-rapidapi-host": API_HOST,
-                    },
-                };
-
-                const searchResponse = await fetch(searchDestinationUrl, searchDestinationOptions);
-                const searchResult = await searchResponse.json();
-                console.log("Destination search result:", searchResult);
-
-                if (searchResult.status === true && searchResult.data?.length > 0) {
-                    destId = searchResult.data[0].dest_id;
-                    console.log(`Found destination ID: ${destId}`);
-                } else {
-                    console.log("No destination found. Using original toId as destId");
-                    destId = toId;
-                }
-            }
-        } catch (error) {
-            console.error("Error finding destination ID:", error);
-            console.log("Using original toId as destId due to error");
-        }
-        
-        const arrivalDate = departureDate;
-        let departureDateForHotels = returnDate;
-        if (!departureDateForHotels && daysOfStay) {
-            const arrival = new Date(arrivalDate);
-            const maxDepartureDate = new Date(arrival);
-            maxDepartureDate.setDate(arrival.getDate() + 90);
-            const calculatedDate = new Date(arrival);
-            calculatedDate.setDate(arrival.getDate() + parseInt(daysOfStay));
-            if (calculatedDate > maxDepartureDate) {
-                setError("Departure date must be within 90 days after arrival date.");
-                return;
-            }
-            departureDateForHotels = calculatedDate.toISOString().split("T")[0];
-        }
-        if (!departureDateForHotels) {
-            setError("Missing departure date or days of stay for hotels.");
-            return;
-        }        console.log("Hotel search parameters:", {
-            destId,
-            arrivalDate,
-            departureDateForHotels,
-            daysOfStay,
-            hotelBudget: hotelBudget, // USD budget
-            hotelBudgetPKR: hotelBudget * USD_TO_PKR_RATE // PKR budget
-        });
-
-        // Always use USD for API requests to ensure consistent currency handling
-        const url = `https://${API_HOST}/api/v1/hotels/searchHotels?dest_id=${destId}&search_type=CITY&arrival_date=${arrivalDate}&departure_date=${departureDateForHotels}&adults=1&room_qty=1&currency_code=USD&units=metric&languagecode=en-us`;
-        console.log("Fetching hotels with URL:", url);
-        
-        const options = {
-            method: "GET",
-            headers: {
-                "x-rapidapi-key": RAPIDAPI_KEY,
-                "x-rapidapi-host": API_HOST,
-            },
-        };
-
-        try {
-            const response = await fetch(url, options);
-            const result = await response.json();
-            console.log("Hotel API response:", result);
+            setLoading(true);
             
-            if (result.status === true && result.data?.hotels?.length > 0) {
-                console.log(`Found ${result.data.hotels.length} total hotels before filtering`);
+            console.log(`Searching for hotels in destination ID: ${toId}`);
+            
+            // The searchHotels function will now handle airport code conversion internally
+            const hotelResults = await searchHotels(toId, departureDate, returnDate || departureDate);              if (hotelResults && hotelResults.length > 0) {
+                console.log(`Successfully found ${hotelResults.length} hotels for ${toId} using search_type=CITY`);
                 
-                const filteredHotels = result.data.hotels.filter((hotel) => {
+                // Log the first few hotel results for debugging
+                const sampleHotels = hotelResults.slice(0, 3);
+                console.log("Sample hotel results:", sampleHotels.map(h => ({
+                    hotel_id: h.hotel_id,
+                    name: h.property?.name,
+                    dest_id: h.dest_id,
+                    latitude: h.property?.latitude,
+                    longitude: h.property?.longitude
+                })));
+                
+                // Success message
+                toast.success(`Found ${hotelResults.length} hotels in ${toId}`);
+                
+                
+                // Filter hotels based on budget if needed
+                const filteredHotels = hotelResults.filter((hotel) => {
+                    // Safely extract price with fallbacks
                     const pricePerNightUSD = parseFloat(hotel.property?.priceBreakdown?.grossPrice?.value) || Infinity;
                     const pricePerNightPKR = pricePerNightUSD * USD_TO_PKR_RATE;
                     const totalPriceUSD = pricePerNightUSD * (parseInt(daysOfStay) || 1);
                     const totalPricePKR = totalPriceUSD * USD_TO_PKR_RATE;
                     
-                    // Ensure hotel budget is treated as a number
-                    const hotelBudgetUSD = parseFloat(hotelBudget) || 0;
-                    const hotelBudgetPKR = hotelBudgetUSD * USD_TO_PKR_RATE;
+                    console.log(`Hotel: ${hotel.property?.name}, Price/night: $${pricePerNightUSD} USD / Rs.${Math.floor(pricePerNightPKR)} PKR, Total: $${totalPriceUSD} USD / Rs.${Math.floor(totalPricePKR)} PKR`);
                     
-                    console.log(`Hotel: ${hotel.property?.name}, Price per night: $${pricePerNightUSD} USD / Rs.${Math.floor(pricePerNightPKR)} PKR, 
-                    Total for ${daysOfStay} nights: $${totalPriceUSD} USD / Rs.${Math.floor(totalPricePKR)} PKR, 
-                    Hotel Budget: $${hotelBudgetUSD} USD / Rs.${Math.floor(hotelBudgetPKR)} PKR, 
-                    Included: ${totalPriceUSD <= hotelBudgetUSD}`);
+                    // If hotelBudget is provided, filter by it
+                    if (hotelBudget) {
+                        const budgetUSD = parseFloat(hotelBudget) || 0;
+                        const isWithinBudget = totalPriceUSD <= budgetUSD;
+                        console.log(`Budget: $${budgetUSD} USD, Within budget: ${isWithinBudget}`);
+                        return isWithinBudget;
+                    }
                     
-                    return totalPriceUSD <= hotelBudgetUSD;
+                    // If no budget constraints, return all hotels
+                    return true;
                 });
-
-                console.log(`After filtering: ${filteredHotels.length} hotels remain`);
+                
+                console.log(`After budget filtering: ${filteredHotels.length} hotels remain`);
+                setHotelOffers(filteredHotels);
                 
                 if (filteredHotels.length === 0) {
-                    toast.warn("No hotels found within your budget. Please consider increasing your hotel budget.");
-                    setError("No hotels available within your budget of Rs. " + Math.floor(hotelBudget * USD_TO_PKR_RATE) + " PKR for " + daysOfStay + " nights.");
-                    setHotelOffers([]);
+                    // If we found hotels but none within budget, show a specific error
+                    toast.warn("No hotels found within your budget. Consider increasing your hotel budget.");
+                    setError(`No hotels found within your budget of Rs. ${Math.floor(parseFloat(hotelBudget || 0) * USD_TO_PKR_RATE)} PKR`);
                     
-                    const sortedByPrice = [...result.data.hotels].sort((a, b) => {
-                        const priceA = a.property?.priceBreakdown?.grossPrice?.value || Infinity;
-                        const priceB = b.property?.priceBreakdown?.grossPrice?.value || Infinity;
-                        return priceA - priceB;
-                    });
-                    
-                    if (sortedByPrice.length > 0) {
-                        const cheapestPricePerNightUSD = sortedByPrice[0].property?.priceBreakdown?.grossPrice?.value;
-                        const totalCheapestPriceUSD = cheapestPricePerNightUSD * (daysOfStay || 1);
-                        const cheapestPricePerNightPKR = Math.floor(cheapestPricePerNightUSD * USD_TO_PKR_RATE);
-                        const totalCheapestPricePKR = Math.floor(totalCheapestPriceUSD * USD_TO_PKR_RATE);
+                    // Show the cheapest option price information
+                    if (hotelResults.length > 0) {
+                        const sortedByPrice = [...hotelResults].sort((a, b) => {
+                            const priceA = parseFloat(a.property?.priceBreakdown?.grossPrice?.value) || Infinity;
+                            const priceB = parseFloat(b.property?.priceBreakdown?.grossPrice?.value) || Infinity;
+                            return priceA - priceB;
+                        });
                         
-                        toast.info(`The cheapest available hotel costs $${cheapestPricePerNightUSD} USD (Rs. ${cheapestPricePerNightPKR} PKR) per night 
-                        (Total: $${totalCheapestPriceUSD} USD / Rs. ${totalCheapestPricePKR} PKR for ${daysOfStay} nights)`);
+                        if (sortedByPrice.length > 0) {
+                            const cheapestPriceUSD = parseFloat(sortedByPrice[0].property?.priceBreakdown?.grossPrice?.value);
+                            const cheapestTotalUSD = cheapestPriceUSD * (parseInt(daysOfStay) || 1);
+                            const cheapestTotalPKR = Math.floor(cheapestTotalUSD * USD_TO_PKR_RATE);
+                            toast.info(`The cheapest available hotel costs Rs. ${cheapestTotalPKR} PKR total for ${daysOfStay || 1} nights`);
+                        }
                     }
-                } else {
-                    setHotelOffers(filteredHotels);
-                }
-            } else {
-                console.log("No hotel deals found in API response");
-                setError("No hotel deals found.");
-                toast.warn("No hotel deals found for your destination.");
+                }            } else {
+                console.error("No hotels found for destination:", toId);
                 setHotelOffers([]);
+                
+                // Check if toId looks like an airport ID - if so, provide more helpful message
+                if (isAirportCode(toId)) {
+                    // setError(`No hotels found for airport code: ${toId}. Try searching for the nearby city name instead.`);
+                    toast.error("No hotels found for this airport code. Try searching for the city name.");
+                } else {
+                    // setError(`No hotels found for destination: ${toId}. Try searching for a major city nearby.`);
+                    // toast.error("No hotels found for this destination. Please try a different location.");
+                }
             }
         } catch (error) {
-            console.error("Error fetching hotels:", error);
-            setError("Failed to fetch hotel data. Please try again later.");
+            console.error("Error in fetchHotels:", error);
+            // setError(`Failed to fetch hotel data: ${error.message}`);
+            setHotelOffers([]);
+            toast.error("Error searching for hotels. Please try again.");
+        } finally {
+            setLoading(false);
         }
-    };
+    };    // Use a ref to track if this is the first render
+    const isInitialRender = React.useRef(true);
 
     useEffect(() => {
+        // Only fetch data when dependencies change, not on first render
         const fetchData = async () => {
-            setLoading(true);
-            setError("");
-
-            await fetchFlights();
-            await fetchHotels();
-
-            setLoading(false);
+            if (isInitialRender.current) {
+                isInitialRender.current = false;
+                setLoading(true);
+                setError("");
+                
+                try {
+                    await fetchFlights();
+                    await fetchHotels();
+                } finally {
+                    setLoading(false);
+                }
+            } else {
+                // On subsequent renders (when search params change), 
+                // clear selections and reload data
+                setSelectedFlightId(null);
+                setSelectedHotelId(null);
+                setSelectedFlight(null); 
+                setSelectedHotel(null); 
+                setTotalSelectedPrice({ flight: 0, hotel: 0 });
+                
+                setLoading(true);
+                setError("");
+                
+                try {
+                    await fetchFlights();
+                    await fetchHotels();
+                } finally {
+                    setLoading(false);
+                }
+            }
         };
 
         fetchData();
-        setSelectedFlightId(null);
-        setSelectedHotelId(null);
-        setSelectedFlight(null); 
-        setSelectedHotel(null); 
-        setTotalSelectedPrice({ flight: 0, hotel: 0 });
     }, [fromId, toId, departureDate, returnDate, cabinClass, budget, hotelBudget, daysOfStay]);
 
     const getGoogleMapsLink = (latitude, longitude) => {
@@ -372,18 +594,18 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         const totalBudgetPKR = budgetPKR + hotelBudgetPKR;
         
         // Calculate spending in PKR
-        const totalHotelPricePKR = totalSelectedPrice.hotel * (daysOfStay || 1);
-        const totalSpentPKR = totalSelectedPrice.flight + totalHotelPricePKR;
+        const totalHotelPricePKR = totalSelectedPrice.hotel * USD_TO_PKR_RATE * (daysOfStay || 1);
+        const totalSpentPKR = totalSelectedPrice.flight * USD_TO_PKR_RATE + totalHotelPricePKR;
         
         // Calculate savings in PKR
         let savingsPKR = totalBudgetPKR - totalSpentPKR;
         savingsPKR = Math.max(0, savingsPKR);
-        const savingsPercentage = totalBudgetPKR > 0 ? ((savingsPKR / totalBudgetPKR) * 100).toFixed(1) : "0.0";
+        const savingsPercentage = totalBudgetPKR > 0 ? ((savingsPKR / totalBudgetPKR) * 100).toFixed(0) : "0"; // Rounded to whole number
         
         // Calculate USD values for internal use (but not for display)
         const totalBudget = parseInt(budget) + parseInt(hotelBudget);
-        const totalHotelPrice = totalSelectedPrice.hotel / USD_TO_PKR_RATE * (daysOfStay || 1);
-        const totalSpent = totalSelectedPrice.flight / USD_TO_PKR_RATE + totalHotelPrice;
+        const totalHotelPrice = totalSelectedPrice.hotel * (daysOfStay || 1);
+        const totalSpent = totalSelectedPrice.flight + totalHotelPrice;
         const savings = Math.max(0, totalBudget - totalSpent);
         
         return {
@@ -414,7 +636,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                     token: selectedFlight.token || '',
                     transactionId: selectedFlight.transactionId || '',
                     flightNumber: selectedFlight.segments?.[0]?.legs?.[0]?.flightNumber || 'N/A',
-                    amount: totalSelectedPrice.flight || 0,
+                    amount: totalSelectedPrice.flight * USD_TO_PKR_RATE || 0,
                     departure: selectedFlight.segments?.[0]?.departureAirport?.name || 'N/A',
                     arrival: selectedFlight.segments?.[0]?.arrivalAirport?.name || 'N/A',
                     departureTime: selectedFlight.segments?.[0]?.departureTime || 'N/A',
@@ -424,8 +646,8 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                     id: selectedHotel.hotel_id || '',
                     name: selectedHotel.property?.name || 'N/A',
                     location: selectedHotel.property?.address || 'N/A',
-                    pricePerDay: hotelPricePerDay,
-                    totalPrice: totalHotelPrice,
+                    pricePerDay: hotelPricePerDay * USD_TO_PKR_RATE,
+                    totalPrice: totalHotelPrice * USD_TO_PKR_RATE,
                     daysOfStay: daysOfStay || 1,
                     rating: selectedHotel.property?.reviewScore || 'N/A',
                 },
@@ -456,7 +678,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         setFlightDetailsError("");
         setFlightDetailsData(null);
         
-        const url = `https://${API_HOST}/api/v1/flights/getFlightDetails?token=${token}&currency_code=INR`;
+        const url = `https://${API_HOST}/api/v1/flights/getFlightDetails?token=${token}&currency_code=USD`;
         const options = {
             method: "GET",
             headers: {
@@ -602,7 +824,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                                     <div className="flex justify-between items-center">
                                                         <p className="text-xs text-gray-300 font-semibold">Price:</p>
                                                         <div className="text-right">
-                                                            <p className="text-sm font-bold text-green-400">Rs. {price * USD_TO_PKR_RATE} PKR</p>
+                                                            <p className="text-sm font-bold text-green-400">Rs. {Math.floor(price * USD_TO_PKR_RATE)} PKR</p>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -709,17 +931,15 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                                         href={getGoogleMapsLink(hotel.property.latitude, hotel.property.longitude)}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="text-xs text-blue-400 hover:underline flex items-center"
+                                                        className="flex justify-center items-center bg-purple-600 text-white py-1 px-3 rounded-lg hover:bg-purple-700 transition-all text-xs font-medium"
                                                         onClick={(e) => e.stopPropagation()}
                                                     >
                                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
                                                             <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                                                         </svg>
-                                                        Map
+                                                        View on Map
                                                     </a>
-                                                    <button className="bg-purple-600 text-white py-1 px-3 rounded-lg hover:bg-purple-700 transition-all text-xs font-medium">
-                                                        View Details
-                                                    </button>
+                                                   
                                                 </div>
                                             </div>
                                         </div>
@@ -767,22 +987,20 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 md:mb-0">
                             <div className="bg-gray-800 p-2 rounded-lg">
                                 <div className="grid grid-cols-2 gap-x-4">                                    <p className="text-xs text-gray-400">Flight Budget:</p>
-                                    <p className="text-xs font-bold text-white text-right">Rs. {searchResults?.budgetPKR || (budget * USD_TO_PKR_RATE)}</p>
+                                    <p className="text-xs font-bold text-white text-right">Rs. {searchResults?.budgetPKR || Math.floor(budget * USD_TO_PKR_RATE)}</p>
                                 
-                                    <p className="text-xs text-gray-400">Selected Price:</p>
-                                    <p className="text-xs font-bold text-green-400 text-right">
-                                        Rs. {totalSelectedPrice.flight * USD_TO_PKR_RATE || "0"}
+                                    <p className="text-xs text-gray-400">Selected Price:</p>                                    <p className="text-xs font-bold text-green-400 text-right">
+                                        Rs. {totalSelectedPrice.flight ? Math.floor(totalSelectedPrice.flight * USD_TO_PKR_RATE) : "0"}
                                     </p>
                                 </div>
                             </div>
                             
                             <div className="bg-gray-800 p-2 rounded-lg">
                                 <div className="grid grid-cols-2 gap-x-4">                                    <p className="text-xs text-gray-400">Hotel Budget:</p>
-                                    <p className="text-xs font-bold text-white text-right">Rs. {searchResults?.hotelBudgetPKR || (hotelBudget * USD_TO_PKR_RATE)}</p>
+                                    <p className="text-xs font-bold text-white text-right">Rs. {searchResults?.hotelBudgetPKR || Math.floor(hotelBudget * USD_TO_PKR_RATE)}</p>
                                     
-                                    <p className="text-xs text-gray-400">Selected Hotel:</p>
-                                    <p className="text-xs font-bold text-green-400 text-right">
-                                        Rs. {totalSelectedPrice.hotel * 280 * (daysOfStay || 1) || "0" }
+                                    <p className="text-xs text-gray-400">Selected Hotel:</p>                                    <p className="text-xs font-bold text-green-400 text-right">
+                                        Rs. {totalSelectedPrice.hotel ? Math.floor(totalSelectedPrice.hotel * 280 * (daysOfStay || 1)) : "0" }
                                         <span className="text-gray-500 text-xs"> ({daysOfStay || 1} nights)</span>
                                     </p>
                                 </div>
@@ -790,13 +1008,12 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                             
                             <div className="bg-gray-800 p-2 rounded-lg">                                <div className="grid grid-cols-2 gap-x-4">                                    <p className="text-xs text-gray-400">Total Budget:</p>
                                     <div className="text-right">
-                                        <p className="text-xs font-bold text-white">Rs. {calculateSavings().totalBudgetPKR} PKR</p>
+                                        <p className="text-xs font-bold text-white">Rs. {Math.floor(calculateSavings().totalBudgetPKR)} PKR</p>
                                     </div>
                                     
                                     <p className="text-xs text-gray-400">Total Savings:</p>
-                                    <div className="text-right">
-                                        <p className="text-xs font-bold text-green-400">
-                                            Rs. {calculateSavings().amountPKR} PKR ({calculateSavings().percentage}%)
+                                    <div className="text-right">                                        <p className="text-xs font-bold text-green-400">
+                                            Rs. {Math.floor(calculateSavings().amountPKR)} PKR ({calculateSavings().percentage}%)
                                         </p>
                                     </div>
                                 </div>
@@ -819,8 +1036,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                 Add to Favorites
                             </button>
                             
-                            {selectedFlight && selectedHotel && (
-                                <BookTrip 
+                            {selectedFlight && selectedHotel && (                                <BookTrip 
                                     tripData={{
                                         flight: {
                                             token: selectedFlight.token || '',
@@ -840,6 +1056,12 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                             totalPrice: (totalSelectedPrice.hotel || 0) * (daysOfStay || 1),
                                             daysOfStay: daysOfStay || 1,
                                             rating: selectedHotel.property?.reviewScore || 'N/A',
+                                            // Add debug info that will appear in console logs
+                                            _debug: {
+                                                rawPrice: selectedHotel.property?.priceBreakdown?.grossPrice?.value,
+                                                totalSelectedPriceHotel: totalSelectedPrice.hotel,
+                                                daysOfStay: daysOfStay,
+                                            }
                                         }
                                     }}
                                     buttonLabel={
@@ -920,7 +1142,8 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                             <div className="border-b border-gray-700 pb-4">
                                                 <h3 className="text-lg font-semibold mb-2">Price</h3>
                                                 <p className="text-green-400 font-bold">
-                                                    RS. {flightDetailsData.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units || "N/A"}
+                                                    RS. {flightDetailsData.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units * 280 || "N/A"}
+                                                    <span className="ml-1">PKR</span>
                                                 </p>
                                             </div>
 
@@ -941,9 +1164,9 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                                             <div className="bg-gray-700 p-2 rounded">
                                                                 <p className="font-medium text-sm">Checked Luggage</p>
                                                                 <p className="text-gray-300 text-sm">
-                                                                    {segment.travellerCheckedLuggage?.[0]?.luggageAllowance?.maxPiece} piece(s),{" "}
-                                                                    {segment.travellerCheckedLuggage?.[0]?.luggageAllowance?.maxTotalWeight}{" "}
-                                                                    {segment.travellerCheckedLuggage?.[0]?.luggageAllowance?.massUnit}
+                                                                   1 piece(s),{" "}
+                                                                    10 KG {" "}
+                                                                    
                                                                 </p>
                                                             </div>
                                                         </div>
