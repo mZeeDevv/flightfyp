@@ -204,7 +204,7 @@ export default function UserTrips() {
                       <p className="text-gray-800">{trip.flightDetails?.flightNumber || 'N/A'}</p>
                     </div>                    <div>
                       <p className="text-gray-500 font-medium">Price</p>
-                      <p className="text-gray-800 font-bold">RS. {Math.floor(trip.flightDetails?.amount || 0)}</p>
+                      <p className="text-gray-800 font-bold">RS. {Math.floor(trip.flightDetails?.amount * 280 || 0)}</p>
                     </div>
                   </div>
                 </div>
@@ -224,11 +224,7 @@ export default function UserTrips() {
                       <p className="text-gray-800 font-semibold">{trip.hotelDetails?.hotelName || 'N/A'}</p>
                     </div>
                     <div>
-                      <p className="text-gray-500 font-medium">Location</p>
-                      <div className="flex items-start">
-                        <FaMapMarkerAlt className="text-gray-400 mt-1 mr-1 flex-shrink-0" />
-                        <p className="text-gray-800">{trip.hotelDetails?.location || 'N/A'}</p>
-                      </div>
+                      
                     </div>
                     <div className="flex justify-between">
                       <div>
@@ -251,13 +247,13 @@ export default function UserTrips() {
                       )}                      {trip.hotelDetails?.pricePerDay && (
                         <div>
                           <p className="text-gray-500 font-medium">Price per night</p>
-                          <p className="text-gray-800">RS. {Math.floor(trip.hotelDetails.pricePerDay)}</p>
+                          <p className="text-gray-800">RS. {Math.floor(trip.hotelDetails.pricePerDay * 280 )}</p>
                         </div>
                       )}
                     </div>                    <div>
                       <p className="text-gray-500 font-medium">Total Price</p>
                       <p className="text-gray-800 font-bold">
-                        RS. {Math.floor(trip.hotelDetails?.totalPrice || trip.hotelDetails?.amount || 0)}
+                        RS. {Math.floor(trip.hotelDetails?.totalPrice || trip.hotelDetails?.amount * 280 || 0)}
                       </p>
                     </div>
                   </div>
@@ -268,7 +264,7 @@ export default function UserTrips() {
                   <div className="flex justify-between items-center">                    <div>
                       <p className="text-gray-500 text-sm font-medium">Total Amount:</p>
                       <p className="text-xl font-bold text-green-600">
-                        RS. {Math.floor(trip.totalAmount || 0)}
+                        RS. {Math.floor(trip.totalAmount * 280 || 0)}
                       </p>
                       <p className="text-xs text-gray-500">
                         Paid via {trip.paymentMethod === 'credit' ? 'Credit Card' : 'Debit Card'}

@@ -168,9 +168,8 @@ const TripInvoicePDF = ({ tripDetails, transactionId, paymentMethod, userData, t
               <Text style={styles.label}>Flight Number:</Text>
               <Text style={styles.value}>{tripDetails.flight?.flightNumber || 'N/A'}</Text>
             </View>
-            <View style={styles.column}>
-              <Text style={styles.label}>Flight Price:</Text>
-              <Text style={styles.value}>RS. {tripDetails.flight?.amount || 0}</Text>
+            <View style={styles.column}>              <Text style={styles.label}>Flight Price:</Text>
+              <Text style={styles.value}>RS. {Math.floor((tripDetails.flight?.amount || 0) * 280)}</Text>
             </View>
           </View>
         </View>
@@ -182,18 +181,22 @@ const TripInvoicePDF = ({ tripDetails, transactionId, paymentMethod, userData, t
             <Text style={styles.label}>Hotel Name:</Text>
             <Text style={styles.value}>{tripDetails.hotel?.name || 'N/A'}</Text>
           </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Location:</Text>
-            <Text style={styles.value}>{tripDetails.hotel?.location || 'N/A'}</Text>
-          </View>
+          
           <View style={styles.row}>
             <View style={styles.column}>
               <Text style={styles.label}>Rating:</Text>
               <Text style={styles.value}>{tripDetails.hotel?.rating || 'N/A'}</Text>
+            </View>            <View style={styles.column}>              <Text style={styles.label}>Price Per Night:</Text>
+              <Text style={styles.value}>RS. {Math.floor((tripDetails.hotel?.pricePerDay || 0) * 280)}</Text>
             </View>
+          </View>
+          <View style={styles.row}>
             <View style={styles.column}>
-              <Text style={styles.label}>Hotel Price:</Text>
-              <Text style={styles.value}>RS. {tripDetails.hotel?.price || 0}</Text>
+              <Text style={styles.label}>Days of Stay:</Text>
+              <Text style={styles.value}>{tripDetails.hotel?.daysOfStay || 1}</Text>
+            </View>
+            <View style={styles.column}>              <Text style={styles.label}>Total Hotel Price:</Text>
+              <Text style={styles.value}>RS. {Math.floor((tripDetails.hotel?.totalPrice || 0) * 280)}</Text>
             </View>
           </View>
         </View>
@@ -210,10 +213,9 @@ const TripInvoicePDF = ({ tripDetails, transactionId, paymentMethod, userData, t
           <View style={styles.row}>
             <Text style={styles.label}>Status:</Text>
             <Text style={styles.value}>Confirmed</Text>
-          </View>
-          <View style={styles.total}>
+          </View>          <View style={styles.total}>
             <Text style={styles.totalLabel}>Total Amount:</Text>
-            <Text style={styles.totalValue}>RS. {totalAmount}</Text>
+            <Text style={styles.totalValue}>RS. {Math.floor(totalAmount * 280)}</Text>
           </View>
         </View>
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const ChatWidget = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -10,7 +11,27 @@ const ChatWidget = () => {
     const [socket, setSocket] = useState(null);
     const [user, setUser] = useState(null); // Store user info (name and email)
     const [authChecked, setAuthChecked] = useState(false); // Flag to check if auth has been checked
-    const messagesEndRef = useRef(null);    useEffect(() => {
+    const [chatMode, setChatMode] = useState(null); // 'ai' or 'admin'
+    const [isProcessing, setIsProcessing] = useState(false); // For AI response processing
+    const [genAI, setGenAI] = useState(null);
+    const [aiModel, setAiModel] = useState(null);
+    const messagesEndRef = useRef(null);
+    
+    // Initialize Gemini AI
+    useEffect(() => {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        const modelName = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash';
+        
+        if (apiKey) {
+            const ai = new GoogleGenerativeAI(apiKey);
+            setGenAI(ai);
+            setAiModel(ai.getGenerativeModel({ model: modelName }));
+        } else {
+            console.error("Gemini API key not found in environment variables");
+        }
+    }, []);
+    
+    useEffect(() => {
         const newSocket = io('http://localhost:4000', {
             transports: ['websocket', 'polling'],
         });
@@ -73,28 +94,71 @@ const ChatWidget = () => {
                 ]);
             });
         }
-    }, [socket]);
-
-    const sendMessage = (e) => {
+    }, [socket]);    const sendMessage = async (e) => {
         e.preventDefault();
-        if (message.trim() && socket && user) {
-            const messageData = {
+        if (!message.trim() || !user) return;
+        
+        // Add user message to chat
+        setMessages((prev) => [
+            ...prev,
+            {
                 text: message,
                 username: user.name,
-                email: user.email,
-            };
-            socket.emit('user-message', messageData);
-            setMessages((prev) => [
-                ...prev,
-                {
-                    text: message,
+                from: 'user',
+            },
+        ]);
+        
+        const userMessage = message;
+        setMessage('');
+          if (chatMode === 'admin') {
+            // Send to admin via socket
+            if (socket) {
+                const messageData = {
+                    text: userMessage,
                     username: user.name,
-                    from: 'user',
-                },
-            ]);
-            setMessage('');
+                    email: user.email,
+                    userId: user.email, // Adding userId to ensure admin panel can identify the user properly
+                };
+                socket.emit('user-message', messageData);
+            }
+        } else if (chatMode === 'ai' && aiModel) {
+            // Process with Gemini AI
+            setIsProcessing(true);
+            try {
+                const result = await aiModel.generateContent(userMessage);
+                const response = result.response;
+                const text = response.text();
+                
+                // Format the response to handle markdown properly
+                // Replace ** with proper format and handle newlines
+                const formattedText = text
+                    .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold formatting
+                    .replace(/\\n/g, '\n') // Handle escaped newlines
+                    .trim();
+                
+                setMessages((prev) => [
+                    ...prev,
+                    {
+                        text: formattedText,
+                        username: 'AI Assistant',
+                        from: 'ai',
+                    },
+                ]);
+            } catch (error) {
+                console.error("Error generating AI response:", error);
+                setMessages((prev) => [
+                    ...prev,
+                    {
+                        text: "Sorry, I couldn't generate a response. Please try again later.",
+                        username: 'AI Assistant',
+                        from: 'ai',
+                    },
+                ]);
+            } finally {
+                setIsProcessing(false);
+            }
         }
-    };    const handleUserSubmit = (e) => {
+    };const handleUserSubmit = (e) => {
         e.preventDefault();
         const name = e.target.name.value;
         const email = e.target.email.value;
@@ -150,14 +214,43 @@ const ChatWidget = () => {
                                     Start Chat
                                 </button>
                             </form>
-                        </div>
-                    ) : !authChecked ? (
+                        </div>                    ) : !authChecked ? (
                         <div className="p-4 flex justify-center items-center h-48">
                             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
                         </div>
+                    ) : chatMode === null ? (
+                        <div className="p-4">
+                            <p className="text-center mb-4 text-gray-600">Choose who you want to chat with:</p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setChatMode('ai')}
+                                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium transition-colors"
+                                >
+                                    Chat with AI
+                                </button>
+                                <button
+                                    onClick={() => setChatMode('admin')}
+                                    className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-lg font-medium transition-colors"
+                                >
+                                    Chat with Admin
+                                </button>
+                            </div>
+                        </div>
                     ) : (
                         <>
-                            <div className="h-96 p-4 overflow-y-auto">
+                            <div className="bg-gray-100 px-4 py-2 border-b flex items-center justify-between">
+                                <span className="font-medium">{chatMode === 'ai' ? 'AI Assistant' : 'Admin Support'}</span>
+                                <button 
+                                    onClick={() => {
+                                        setChatMode(null);
+                                        setMessages([]);
+                                    }}
+                                    className="text-sm text-blue-600 hover:text-blue-800"
+                                >
+                                    Change
+                                </button>
+                            </div>
+                            <div className="h-80 p-4 overflow-y-auto">
                                 {messages.map((msg, index) => (
                                     <div
                                         key={index}

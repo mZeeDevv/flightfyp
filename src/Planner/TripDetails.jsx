@@ -100,6 +100,11 @@ const searchHotels = async (cityOrAirport, arrivalDate, departureDate) => {
     };
 
     const destinationResponse = await fetch(destinationUrl, options);
+    if (!destinationResponse.ok) {
+      console.error("Destination search API error:", destinationResponse.status);
+      throw new Error(`Destination search failed with status: ${destinationResponse.status}`);
+    }
+    
     const destinationResult = await destinationResponse.json();
     console.log("Destination search response:", destinationResult);
 
@@ -187,10 +192,12 @@ const searchHotels = async (cityOrAirport, arrivalDate, departureDate) => {
     
     const departureDateStr = departureDateObj.toISOString().split('T')[0];
     
-    console.log("Using dates:", { arrivalDateStr, departureDateStr });    // Step 2: Use the dest_id to search for hotels with the correct search_type
+    console.log("Using dates:", { arrivalDateStr, departureDateStr });
+    
+    // Step 2: Use the dest_id to search for hotels with the correct search_type
     const url = new URL(`https://${API_HOST}/api/v1/hotels/searchHotels`);
     url.searchParams.append("dest_id", destId);
-    url.searchParams.append("search_type", searchType); // Always CITY for consistent results
+    url.searchParams.append("search_type", searchType);  // Always CITY for consistent results
     url.searchParams.append("adults", 1);
     url.searchParams.append("room_qty", 1);
     url.searchParams.append("arrival_date", arrivalDateStr);
@@ -219,6 +226,17 @@ const searchHotels = async (cityOrAirport, arrivalDate, departureDate) => {
     });
     console.log("Hotel API Response Headers:", responseHeaders);
     
+    if (!hotelsResponse.ok) {
+      console.error("Hotel search API error:", hotelsResponse.status);
+      try {
+        const errorText = await hotelsResponse.text();
+        console.error("API Error details:", errorText);
+      } catch (e) {
+        console.error("Could not read error response text");
+      }
+      throw new Error(`Hotel search failed with status: ${hotelsResponse.status}`);
+    }
+    
     const hotelsResult = await hotelsResponse.json();
     console.log("Hotels search response:", hotelsResult);
 
@@ -228,7 +246,8 @@ const searchHotels = async (cityOrAirport, arrivalDate, departureDate) => {
       return [];
     }
     
-    if (!hotelsResult.status) {      // Check for specific API error messages
+    if (!hotelsResult.status) {      
+      // Check for specific API error messages
       const errorMsg = hotelsResult.message || "Unknown error";
       console.error("Hotel search returned error status:", errorMsg);
       
@@ -251,7 +270,9 @@ const searchHotels = async (cityOrAirport, arrivalDate, departureDate) => {
     if (!hotelsResult.data.hotels) {
       console.error("Hotel search data contains no hotels array");
       return [];
-    }    const hotels = hotelsResult.data.hotels;
+    }
+    
+    const hotels = hotelsResult.data.hotels;
     console.log(`SUCCESS! Found ${hotels.length} hotels for destination "${cityOrAirport}" with search_type=CITY`);
     
     // Add some extra debug info for the first few hotels
@@ -259,7 +280,8 @@ const searchHotels = async (cityOrAirport, arrivalDate, departureDate) => {
       const sample = hotels.slice(0, 2).map(hotel => ({
         id: hotel.hotel_id,
         name: hotel.property?.name,
-        price: hotel.property?.priceBreakdown?.grossPrice?.value
+        price: hotel.property?.priceBreakdown?.grossPrice?.value,
+        photoUrl: hotel.property?.photoUrls?.[0] || "No photo"
       }));
       console.log("Sample hotels:", sample);
     }
@@ -276,7 +298,7 @@ const searchHotels = async (cityOrAirport, arrivalDate, departureDate) => {
       arrivalDate,
       departureDate
     });
-    return []; // Return empty array instead of null for easier handling
+    return [];
   }
 };
 
@@ -1037,18 +1059,16 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                             </button>
                             
                             {selectedFlight && selectedHotel && (                                <BookTrip 
-                                    tripData={{
-                                        flight: {
+                                    tripData={{                                        flight: {
                                             token: selectedFlight.token || '',
                                             transactionId: selectedFlight.transactionId || '',
-                                            flightNumber: selectedFlight.segments?.[0]?.legs?.[0]?.flightNumber || 'N/A',
+                                            flightNumber: Math.random().toString(36).substring(2, 8),
                                             amount: totalSelectedPrice.flight || 0,
                                             departure: selectedFlight.segments?.[0]?.departureAirport?.name || 'N/A',
                                             arrival: selectedFlight.segments?.[0]?.arrivalAirport?.name || 'N/A',
                                             departureTime: selectedFlight.segments?.[0]?.departureTime || 'N/A',
                                             arrivalTime: selectedFlight.segments?.[0]?.arrivalTime || 'N/A',
-                                        },
-                                        hotel: {
+                                        },                                        hotel: {
                                             id: selectedHotel.hotel_id || '',
                                             name: selectedHotel.property?.name || 'N/A',
                                             location: selectedHotel.property?.address || 'N/A',
@@ -1073,7 +1093,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                         </span>
                                     }
                                     buttonClassName="px-4 py-2 rounded-lg transition-all duration-300 text-xs font-medium bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
-                                    onSuccess={() => navigate('/dashboard')}
+                                    onSuccess={() => navigate('/my-trips')}
                                 />
                             )}
                         </div>

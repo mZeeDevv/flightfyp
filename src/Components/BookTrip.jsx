@@ -18,12 +18,20 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
   const [cvv, setCvv] = useState('');
   const [userData, setUserData] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const storage = getStorage();
-  // Calculate total amount from flight + hotel based on the actual structure we receive from TripDetails.jsx
-  const hotelTotalPrice = tripData.hotel?.totalPrice || 
-                        (tripData.hotel?.pricePerDay && tripData.hotel?.daysOfStay ? 
-                         tripData.hotel.pricePerDay * tripData.hotel.daysOfStay : 0);
-  const totalAmount = (tripData.flight?.amount || 0) + hotelTotalPrice;
+  const storage = getStorage();  // Calculate total amount from flight + hotel based on the actual structure we receive from TripDetails.jsx
+  const hotelPricePerDay = parseFloat(tripData.hotel?.pricePerDay || 0);
+  const hotelDaysOfStay = parseInt(tripData.hotel?.daysOfStay || 1);
+  const hotelTotalPrice = tripData.hotel?.totalPrice || (hotelPricePerDay * hotelDaysOfStay);
+  const flightAmount = parseFloat(tripData.flight?.amount || 0);
+  const totalAmount = flightAmount + hotelTotalPrice;
+  
+  console.log("Price calculation in BookTrip:", {
+    hotelPricePerDay,
+    hotelDaysOfStay,
+    hotelTotalPrice,
+    flightAmount,
+    totalAmount
+  });
 
   // Log the tripData to debug pricing issues
   useEffect(() => {
@@ -62,15 +70,31 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
   const generatePDFBlob = async (tripDetails, transactionId) => {
     if (!tripDetails || !userData) {
       throw new Error("Trip details or user data is missing");
-    }
-
+    }    // Ensure hotel prices are correctly calculated for the PDF
+    const pdfTripDetails = {
+      ...tripDetails,
+      hotel: {
+        ...tripDetails.hotel,
+        pricePerDay: parseFloat(tripDetails.hotel?.pricePerDay || 0),
+        totalPrice: parseFloat(tripDetails.hotel?.totalPrice || 0) || 
+                  (parseFloat(tripDetails.hotel?.pricePerDay || 0) * parseInt(tripDetails.hotel?.daysOfStay || 1))
+      }
+    };
+    
+    console.log("PDF generation with trip details:", {
+      original: tripDetails,
+      modified: pdfTripDetails,
+      hotelPricePerDay: pdfTripDetails.hotel?.pricePerDay,
+      hotelTotalPrice: pdfTripDetails.hotel?.totalPrice
+    });
+    
     const pdfElement = (
       <TripInvoicePDF
-        tripDetails={tripDetails}
+        tripDetails={pdfTripDetails}
         transactionId={transactionId}
         paymentMethod={paymentMethod}
         userData={userData}
-        totalAmount={totalAmount}
+        totalAmount={flightAmount + pdfTripDetails.hotel.totalPrice}
       />
     );
 
@@ -284,7 +308,7 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">Flight Number:</span> {tripData.flight?.flightNumber || 'N/A'}
                   </p>                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">Flight Price:</span> RS. {Math.floor(tripData.flight?.amount * 280 || 0)} PKR
+                    <span className="font-medium">Flight Price:</span> RS. {Math.floor((tripData.flight?.amount || 0) * 280)} PKR
                   </p>
                   <p className="text-sm text-gray-600 mt-2 pt-2 border-t border-gray-200">
                     <span className="font-medium">Hotel:</span> {tripData.hotel?.name || 'N/A'}
@@ -292,17 +316,17 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">Location:</span> {tripData.hotel?.location || 'N/A'}
                   </p>                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">Price per night:</span> RS. {Math.floor((tripData.hotel?.pricePerDay || 0) * 280)} PKR
+                    <span className="font-medium">Price per night:</span> RS. {Math.floor((hotelPricePerDay || 0) * 280)} PKR
                   </p>
                   <p className="text-sm text-gray-600">
-                    <span className="font-medium">Stay duration:</span> {tripData.hotel?.daysOfStay || 1} night(s)
+                    <span className="font-medium">Stay duration:</span> {hotelDaysOfStay || 1} night(s)
                   </p>
                   <p className="text-sm text-gray-600">
-                    <span className="font-medium">Hotel Total:</span> RS. {Math.floor((tripData.hotel?.totalPrice || 0) * 280)} PKR
+                    <span className="font-medium">Hotel Total:</span> RS. {Math.floor((hotelTotalPrice || 0) * 280)} PKR
                   </p>
                 </div>
                 
-                <p className="text-lg font-bold text-gray-800">Total Amount: RS. {Math.floor(totalAmount * 280)} PKR</p>
+                <p className="text-lg font-bold text-gray-800">Total Amount: RS. {Math.floor((flightAmount + hotelTotalPrice) * 280)} PKR</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">

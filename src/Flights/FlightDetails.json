@@ -1,0 +1,1024 @@
+{
+    "status": true,
+    "message": "Success",
+    "timestamp": 1747575187657,
+    "data": {
+        "token": "d6a1f_H4sIAAAAAAAA_y2QXY-qMBCGf43eUSitH2zSnICgYQVlkSyrN02tFXH3LIb2ZNFfvyOctJ3nfSeTdjoXY276xbbPX3V1MdqSAlWNaSphFJLNX_vcQjg2zWf9Xdmibu14F4QfAfZSf08wBBvbFiz5sv-jxK1GLTqz6KOI8o2f8CKPM57l8SLerMaqM5ZuJRvXR4UEszzPG6SWDO_-y5ZN0STOHBLhWZ-SjWEUTeevvpOtJ4f1kGzZKg_oa9a7E0sXP9324es01O7mqrsCTlpodxvdgnQZrMtrEG8fESmKvS6j9zRZHg67-qfbOI6ThM_82yx9fOqkyNMk9IGx3hbxiIT9A0pChwjRmYd73wjN6KCkYa4zyJNhu3KV0OEr0DbGU-LMe9cxTKauN9bqS0lTN99rdWfLA5lQC0Yp7u7EKvjTEwum2vty5C4wVf9kRUGNiA-74g5ygBcgBgruvSFMQR05eQdITmeAE8f4SOfPUsWFnAPPPIJYc4yGK648LgEP7gmFq_svCLyqVQgCAAA.",
+        "segments": [
+            {
+                "departureAirport": {
+                    "type": "AIRPORT",
+                    "code": "ISB",
+                    "name": "Islamabad International Airport",
+                    "city": "ISB",
+                    "cityName": "Islamabad",
+                    "country": "PK",
+                    "countryName": "Pakistan",
+                    "province": "Islamabad Capital Territory"
+                },
+                "arrivalAirport": {
+                    "type": "AIRPORT",
+                    "code": "DXB",
+                    "name": "Dubai International Airport",
+                    "city": "DXB",
+                    "cityName": "Dubai",
+                    "country": "AE",
+                    "countryName": "United Arab Emirates",
+                    "province": "Dubai Emirate"
+                },
+                "departureTime": "2025-05-19T05:50:00",
+                "arrivalTime": "2025-05-19T08:10:00",
+                "legs": [
+                    {
+                        "departureTime": "2025-05-19T05:50:00",
+                        "arrivalTime": "2025-05-19T08:10:00",
+                        "departureAirport": {
+                            "type": "AIRPORT",
+                            "code": "ISB",
+                            "name": "Islamabad International Airport",
+                            "city": "ISB",
+                            "cityName": "Islamabad",
+                            "country": "PK",
+                            "countryName": "Pakistan",
+                            "province": "Islamabad Capital Territory"
+                        },
+                        "arrivalAirport": {
+                            "type": "AIRPORT",
+                            "code": "DXB",
+                            "name": "Dubai International Airport",
+                            "city": "DXB",
+                            "cityName": "Dubai",
+                            "country": "AE",
+                            "countryName": "United Arab Emirates",
+                            "province": "Dubai Emirate"
+                        },
+                        "cabinClass": "ECONOMY",
+                        "flightInfo": {
+                            "facilities": [],
+                            "flightNumber": 354,
+                            "planeType": "",
+                            "carrierInfo": {
+                                "operatingCarrier": "FZ",
+                                "marketingCarrier": "FZ",
+                                "operatingCarrierDisclosureText": ""
+                            }
+                        },
+                        "carriers": [
+                            "FZ",
+                            "FZ"
+                        ],
+                        "carriersData": [
+                            {
+                                "name": "Fly Dubai",
+                                "code": "FZ",
+                                "logo": "https://r-xx.bstatic.com/data/airlines_logo/FZ.png"
+                            },
+                            {
+                                "name": "Fly Dubai",
+                                "code": "FZ",
+                                "logo": "https://r-xx.bstatic.com/data/airlines_logo/FZ.png"
+                            }
+                        ],
+                        "totalTime": 12000,
+                        "flightStops": [],
+                        "amenities": []
+                    }
+                ],
+                "totalTime": 12000,
+                "travellerCheckedLuggage": [],
+                "travellerCabinLuggage": [
+                    {
+                        "travellerReference": "1",
+                        "luggageAllowance": {
+                            "luggageType": "HAND",
+                            "maxPiece": 1,
+                            "maxWeightPerPiece": 15.4,
+                            "massUnit": "LB",
+                            "sizeRestrictions": {
+                                "maxLength": 21.7,
+                                "maxWidth": 15,
+                                "maxHeight": 7.9,
+                                "sizeUnit": "INCH"
+                            }
+                        },
+                        "personalItem": true
+                    }
+                ],
+                "isAtolProtected": false,
+                "showWarningDestinationAirport": false,
+                "showWarningOriginAirport": false
+            },
+            {
+                "departureAirport": {
+                    "type": "AIRPORT",
+                    "code": "DXB",
+                    "name": "Dubai International Airport",
+                    "city": "DXB",
+                    "cityName": "Dubai",
+                    "country": "AE",
+                    "countryName": "United Arab Emirates",
+                    "province": "Dubai Emirate"
+                },
+                "arrivalAirport": {
+                    "type": "AIRPORT",
+                    "code": "ISB",
+                    "name": "Islamabad International Airport",
+                    "city": "ISB",
+                    "cityName": "Islamabad",
+                    "country": "PK",
+                    "countryName": "Pakistan",
+                    "province": "Islamabad Capital Territory"
+                },
+                "departureTime": "2025-05-31T00:40:00",
+                "arrivalTime": "2025-05-31T04:50:00",
+                "legs": [
+                    {
+                        "departureTime": "2025-05-31T00:40:00",
+                        "arrivalTime": "2025-05-31T04:50:00",
+                        "departureAirport": {
+                            "type": "AIRPORT",
+                            "code": "DXB",
+                            "name": "Dubai International Airport",
+                            "city": "DXB",
+                            "cityName": "Dubai",
+                            "country": "AE",
+                            "countryName": "United Arab Emirates",
+                            "province": "Dubai Emirate"
+                        },
+                        "arrivalAirport": {
+                            "type": "AIRPORT",
+                            "code": "ISB",
+                            "name": "Islamabad International Airport",
+                            "city": "ISB",
+                            "cityName": "Islamabad",
+                            "country": "PK",
+                            "countryName": "Pakistan",
+                            "province": "Islamabad Capital Territory"
+                        },
+                        "cabinClass": "ECONOMY",
+                        "flightInfo": {
+                            "facilities": [],
+                            "flightNumber": 353,
+                            "planeType": "",
+                            "carrierInfo": {
+                                "operatingCarrier": "FZ",
+                                "marketingCarrier": "FZ",
+                                "operatingCarrierDisclosureText": ""
+                            }
+                        },
+                        "carriers": [
+                            "FZ",
+                            "FZ"
+                        ],
+                        "carriersData": [
+                            {
+                                "name": "Fly Dubai",
+                                "code": "FZ",
+                                "logo": "https://r-xx.bstatic.com/data/airlines_logo/FZ.png"
+                            },
+                            {
+                                "name": "Fly Dubai",
+                                "code": "FZ",
+                                "logo": "https://r-xx.bstatic.com/data/airlines_logo/FZ.png"
+                            }
+                        ],
+                        "totalTime": 11400,
+                        "flightStops": [],
+                        "amenities": []
+                    }
+                ],
+                "totalTime": 11400,
+                "travellerCheckedLuggage": [],
+                "travellerCabinLuggage": [
+                    {
+                        "travellerReference": "1",
+                        "luggageAllowance": {
+                            "luggageType": "HAND",
+                            "maxPiece": 1,
+                            "maxWeightPerPiece": 15.4,
+                            "massUnit": "LB",
+                            "sizeRestrictions": {
+                                "maxLength": 21.7,
+                                "maxWidth": 15,
+                                "maxHeight": 7.9,
+                                "sizeUnit": "INCH"
+                            }
+                        },
+                        "personalItem": true
+                    }
+                ],
+                "isAtolProtected": false,
+                "showWarningDestinationAirport": false,
+                "showWarningOriginAirport": false
+            }
+        ],
+        "priceBreakdown": {
+            "total": {
+                "currencyCode": "CAD",
+                "units": 1163,
+                "nanos": 80000000
+            },
+            "baseFare": {
+                "currencyCode": "CAD",
+                "units": 986,
+                "nanos": 850000000
+            },
+            "fee": {
+                "currencyCode": "CAD",
+                "units": 0,
+                "nanos": 0
+            },
+            "tax": {
+                "currencyCode": "CAD",
+                "units": 176,
+                "nanos": 230000000
+            },
+            "totalRounded": {
+                "currencyCode": "CAD",
+                "nanos": 0,
+                "units": 1164
+            },
+            "moreTaxesAndFees": {
+                "ThirdPartyCharges": {
+                    "taxesAndFeesTotals": {
+                        "Advanced passenger information fee": {
+                            "currencyCode": "CAD",
+                            "units": 3,
+                            "nanos": 820000000
+                        },
+                        "Passenger Service Charge - International": {
+                            "currencyCode": "CAD",
+                            "units": 28,
+                            "nanos": 550000000
+                        },
+                        "Passengers Security & Safety Service Fees": {
+                            "currencyCode": "CAD",
+                            "units": 1,
+                            "nanos": 910000000
+                        },
+                        "TFEE Dummy": {
+                            "currencyCode": "CAD",
+                            "units": 25,
+                            "nanos": 30000000
+                        },
+                        "Infrastructure Development Charges": {
+                            "currencyCode": "CAD",
+                            "units": 13,
+                            "nanos": 920000000
+                        },
+                        "Passenger Facilities Charge ": {
+                            "currencyCode": "CAD",
+                            "units": 17,
+                            "nanos": 130000000
+                        },
+                        "Bank Handling Charge": {
+                            "currencyCode": "CAD",
+                            "units": 13,
+                            "nanos": 750000000
+                        },
+                        "Embarkation fee": {
+                            "currencyCode": "CAD",
+                            "units": 9,
+                            "nanos": 950000000
+                        },
+                        "Federal Excise Duty": {
+                            "currencyCode": "CAD",
+                            "units": 62,
+                            "nanos": 170000000
+                        }
+                    }
+                }
+            },
+            "discount": {
+                "currencyCode": "CAD",
+                "units": 0,
+                "nanos": 0
+            },
+            "totalWithoutDiscount": {
+                "currencyCode": "CAD",
+                "units": 1163,
+                "nanos": 80000000
+            },
+            "totalWithoutDiscountRounded": {
+                "currencyCode": "CAD",
+                "nanos": 0,
+                "units": 1164
+            },
+            "carrierTaxBreakdown": [
+                {
+                    "carrier": {
+                        "name": "Fly Dubai",
+                        "code": "FZ",
+                        "logo": "https://r-xx.bstatic.com/data/airlines_logo/FZ.png"
+                    },
+                    "avgPerAdult": {
+                        "currencyCode": "CAD",
+                        "units": 176,
+                        "nanos": 230000000
+                    }
+                }
+            ]
+        },
+        "travellerPrices": [
+            {
+                "travellerPriceBreakdown": {
+                    "total": {
+                        "currencyCode": "CAD",
+                        "units": 1163,
+                        "nanos": 80000000
+                    },
+                    "baseFare": {
+                        "currencyCode": "CAD",
+                        "units": 986,
+                        "nanos": 850000000
+                    },
+                    "fee": {
+                        "currencyCode": "CAD",
+                        "units": 0,
+                        "nanos": 0
+                    },
+                    "tax": {
+                        "currencyCode": "CAD",
+                        "units": 176,
+                        "nanos": 230000000
+                    },
+                    "totalRounded": {
+                        "currencyCode": "CAD",
+                        "nanos": 0,
+                        "units": 1164
+                    },
+                    "moreTaxesAndFees": {
+                        "ThirdPartyCharges": {
+                            "taxesAndFeesTotals": {
+                                "Passenger Service Charge - International": {
+                                    "currencyCode": "CAD",
+                                    "units": 28,
+                                    "nanos": 550000000
+                                },
+                                "Advanced passenger information fee": {
+                                    "currencyCode": "CAD",
+                                    "units": 3,
+                                    "nanos": 820000000
+                                },
+                                "Passengers Security & Safety Service Fees": {
+                                    "currencyCode": "CAD",
+                                    "units": 1,
+                                    "nanos": 910000000
+                                },
+                                "TFEE Dummy": {
+                                    "currencyCode": "CAD",
+                                    "units": 25,
+                                    "nanos": 30000000
+                                },
+                                "Infrastructure Development Charges": {
+                                    "currencyCode": "CAD",
+                                    "units": 13,
+                                    "nanos": 920000000
+                                },
+                                "Passenger Facilities Charge ": {
+                                    "currencyCode": "CAD",
+                                    "units": 17,
+                                    "nanos": 130000000
+                                },
+                                "Bank Handling Charge": {
+                                    "currencyCode": "CAD",
+                                    "units": 13,
+                                    "nanos": 750000000
+                                },
+                                "Embarkation fee": {
+                                    "currencyCode": "CAD",
+                                    "units": 9,
+                                    "nanos": 950000000
+                                },
+                                "Federal Excise Duty": {
+                                    "currencyCode": "CAD",
+                                    "units": 62,
+                                    "nanos": 170000000
+                                }
+                            }
+                        }
+                    },
+                    "discount": {
+                        "currencyCode": "CAD",
+                        "units": 0,
+                        "nanos": 0
+                    },
+                    "totalWithoutDiscount": {
+                        "currencyCode": "CAD",
+                        "units": 1163,
+                        "nanos": 80000000
+                    },
+                    "totalWithoutDiscountRounded": {
+                        "currencyCode": "CAD",
+                        "nanos": 0,
+                        "units": 1164
+                    }
+                },
+                "travellerReference": "1",
+                "travellerType": "ADULT"
+            }
+        ],
+        "priceDisplayRequirements": [],
+        "pointOfSale": "ca",
+        "tripType": "ROUNDTRIP",
+        "offerReference": "d6a1f_2203670944",
+        "travellerDataRequirements": [
+            "DATE_OF_BIRTH"
+        ],
+        "bookerDataRequirement": [
+            "EMAIL",
+            "PHONE"
+        ],
+        "travellers": [
+            {
+                "travellerReference": "1",
+                "type": "ADULT"
+            }
+        ],
+        "posMismatch": {
+            "detectedPointOfSale": "us",
+            "isPOSMismatch": false,
+            "offerSalesCountry": "ca"
+        },
+        "includedProductsBySegment": [
+            [
+                {
+                    "travellerReference": "1",
+                    "travellerProducts": [
+                        {
+                            "type": "cabinBaggage",
+                            "product": {
+                                "luggageType": "HAND",
+                                "maxPiece": 1,
+                                "maxWeightPerPiece": 15.4,
+                                "massUnit": "LB",
+                                "sizeRestrictions": {
+                                    "maxLength": 21.7,
+                                    "maxWidth": 15,
+                                    "maxHeight": 7.9,
+                                    "sizeUnit": "INCH"
+                                }
+                            }
+                        },
+                        {
+                            "type": "personalItem"
+                        }
+                    ]
+                }
+            ],
+            [
+                {
+                    "travellerReference": "1",
+                    "travellerProducts": [
+                        {
+                            "type": "cabinBaggage",
+                            "product": {
+                                "luggageType": "HAND",
+                                "maxPiece": 1,
+                                "maxWeightPerPiece": 15.4,
+                                "massUnit": "LB",
+                                "sizeRestrictions": {
+                                    "maxLength": 21.7,
+                                    "maxWidth": 15,
+                                    "maxHeight": 7.9,
+                                    "sizeUnit": "INCH"
+                                }
+                            }
+                        },
+                        {
+                            "type": "personalItem"
+                        }
+                    ]
+                }
+            ]
+        ],
+        "includedProducts": {
+            "areAllSegmentsIdentical": true,
+            "segments": [
+                [
+                    {
+                        "luggageType": "PERSONAL_ITEM",
+                        "maxPiece": 1,
+                        "piecePerPax": 1
+                    },
+                    {
+                        "luggageType": "HAND",
+                        "maxPiece": 1,
+                        "maxWeightPerPiece": 15.4,
+                        "massUnit": "LB",
+                        "sizeRestrictions": {
+                            "maxLength": 21.7,
+                            "maxWidth": 15,
+                            "maxHeight": 7.9,
+                            "sizeUnit": "INCH"
+                        },
+                        "piecePerPax": 1
+                    }
+                ]
+            ]
+        },
+        "extraProducts": [
+            {
+                "type": "fastTrack",
+                "priceBreakdown": {
+                    "total": {
+                        "currencyCode": "CAD",
+                        "units": 63,
+                        "nanos": 270000000
+                    },
+                    "baseFare": {
+                        "currencyCode": "CAD",
+                        "units": 63,
+                        "nanos": 270000000
+                    },
+                    "fee": {
+                        "currencyCode": "CAD",
+                        "units": 0,
+                        "nanos": 0
+                    },
+                    "tax": {
+                        "currencyCode": "CAD",
+                        "units": 0,
+                        "nanos": 0
+                    },
+                    "discount": {
+                        "currencyCode": "CAD",
+                        "units": 0,
+                        "nanos": 0
+                    },
+                    "totalWithoutDiscount": {
+                        "currencyCode": "CAD",
+                        "units": 63,
+                        "nanos": 270000000
+                    }
+                }
+            },
+            {
+                "type": "flexibleTicket",
+                "priceBreakdown": {
+                    "total": {
+                        "currencyCode": "CAD",
+                        "units": 151,
+                        "nanos": 200000000
+                    },
+                    "baseFare": {
+                        "currencyCode": "CAD",
+                        "units": 151,
+                        "nanos": 200000000
+                    },
+                    "fee": {
+                        "currencyCode": "CAD",
+                        "units": 0,
+                        "nanos": 0
+                    },
+                    "tax": {
+                        "currencyCode": "CAD",
+                        "units": 0,
+                        "nanos": 0
+                    },
+                    "discount": {
+                        "currencyCode": "CAD",
+                        "units": 0,
+                        "nanos": 0
+                    },
+                    "totalWithoutDiscount": {
+                        "currencyCode": "CAD",
+                        "units": 151,
+                        "nanos": 200000000
+                    }
+                }
+            }
+        ],
+        "offerExtras": {
+            "flexibleTicket": {
+                "airProductReference": "n/a",
+                "travellers": [
+                    "1"
+                ],
+                "recommendation": {
+                    "recommended": false,
+                    "confidence": "UNKNOWN_LEVEL"
+                },
+                "priceBreakdown": {
+                    "total": {
+                        "currencyCode": "CAD",
+                        "units": 151,
+                        "nanos": 200000000
+                    },
+                    "baseFare": {
+                        "currencyCode": "CAD",
+                        "units": 151,
+                        "nanos": 200000000
+                    },
+                    "fee": {
+                        "currencyCode": "CAD",
+                        "units": 0,
+                        "nanos": 0
+                    },
+                    "tax": {
+                        "currencyCode": "CAD",
+                        "units": 0,
+                        "nanos": 0
+                    },
+                    "totalRounded": {
+                        "currencyCode": "CAD",
+                        "nanos": 0,
+                        "units": 152
+                    },
+                    "discount": {
+                        "currencyCode": "CAD",
+                        "units": 0,
+                        "nanos": 0
+                    },
+                    "totalWithoutDiscount": {
+                        "currencyCode": "CAD",
+                        "units": 151,
+                        "nanos": 200000000
+                    },
+                    "totalWithoutDiscountRounded": {
+                        "currencyCode": "CAD",
+                        "nanos": 0,
+                        "units": 152
+                    }
+                },
+                "supplierInfo": {
+                    "name": "Flight Network Ltd",
+                    "termsUrl": "https://flights-ca.gotogate.com/rf/travel-conditions",
+                    "privacyPolicyUrl": "https://flights-ca.gotogate.com/rf/privacy-policy"
+                }
+            }
+        },
+        "ancillaries": {
+            "flexibleTicket": {
+                "airProductReference": "n/a",
+                "travellers": [
+                    "1"
+                ],
+                "priceBreakdown": {
+                    "total": {
+                        "currencyCode": "CAD",
+                        "units": 151,
+                        "nanos": 200000000
+                    },
+                    "baseFare": {
+                        "currencyCode": "CAD",
+                        "units": 151,
+                        "nanos": 200000000
+                    },
+                    "fee": {
+                        "currencyCode": "CAD",
+                        "units": 0,
+                        "nanos": 0
+                    },
+                    "tax": {
+                        "currencyCode": "CAD",
+                        "units": 0,
+                        "nanos": 0
+                    },
+                    "discount": {
+                        "currencyCode": "CAD",
+                        "units": 0,
+                        "nanos": 0
+                    },
+                    "totalWithoutDiscount": {
+                        "currencyCode": "CAD",
+                        "units": 151,
+                        "nanos": 200000000
+                    }
+                },
+                "preSelected": false,
+                "recommendation": {
+                    "recommended": false,
+                    "confidence": "UNKNOWN_LEVEL"
+                },
+                "supplierInfo": {
+                    "name": "Flight Network Ltd",
+                    "termsUrl": "https://flights-ca.gotogate.com/rf/travel-conditions",
+                    "privacyPolicyUrl": "https://flights-ca.gotogate.com/rf/privacy-policy"
+                }
+            }
+        },
+        "brandedFareInfo": {
+            "fareName": "LITE",
+            "cabinClass": "ECONOMY",
+            "features": [
+                {
+                    "featureName": "PERSONAL_BAGGAGE",
+                    "category": "BAGGAGE",
+                    "code": "BK03",
+                    "label": "1 personal item",
+                    "availability": "INCLUDED"
+                },
+                {
+                    "featureName": "CABIN_BAGGAGE",
+                    "category": "BAGGAGE",
+                    "code": "BK02",
+                    "label": "1 cabin bag (15.4 lbs)\t",
+                    "availability": "INCLUDED"
+                },
+                {
+                    "featureName": "CHANGEABLE_TICKET",
+                    "availability": "NOT_INCLUDED",
+                    "category": "CHANGE",
+                    "code": "",
+                    "label": "Not possible to change flights"
+                },
+                {
+                    "featureName": "REFUNDABLE_TICKET",
+                    "availability": "NOT_INCLUDED",
+                    "category": "CANCEL",
+                    "code": "",
+                    "label": "Not possible to cancel flights"
+                }
+            ],
+            "fareAttributes": [],
+            "nonIncludedFeaturesRequired": false,
+            "nonIncludedFeatures": []
+        },
+        "fareRules": [
+            {
+                "segmentIdentifiers": [
+                    {
+                        "segmentIndex": 0,
+                        "legIndex": 0
+                    }
+                ],
+                "availablePolicies": [],
+                "unavailablePolicies": [
+                    {
+                        "type": "CANCEL_BEFORE",
+                        "priceBreakdown": {
+                            "total": {
+                                "currencyCode": "CAD",
+                                "units": 0,
+                                "nanos": 0
+                            },
+                            "baseFare": {
+                                "currencyCode": "CAD",
+                                "units": 0,
+                                "nanos": 0
+                            },
+                            "fee": {
+                                "currencyCode": "CAD",
+                                "units": 0,
+                                "nanos": 0
+                            },
+                            "tax": {
+                                "currencyCode": "CAD",
+                                "units": 0,
+                                "nanos": 0
+                            }
+                        }
+                    },
+                    {
+                        "type": "CHANGE_BEFORE",
+                        "priceBreakdown": {
+                            "total": {
+                                "currencyCode": "CAD",
+                                "units": 0,
+                                "nanos": 0
+                            },
+                            "baseFare": {
+                                "currencyCode": "CAD",
+                                "units": 0,
+                                "nanos": 0
+                            },
+                            "fee": {
+                                "currencyCode": "CAD",
+                                "units": 0,
+                                "nanos": 0
+                            },
+                            "tax": {
+                                "currencyCode": "CAD",
+                                "units": 0,
+                                "nanos": 0
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                "segmentIdentifiers": [
+                    {
+                        "segmentIndex": 1,
+                        "legIndex": 0
+                    }
+                ],
+                "availablePolicies": [],
+                "unavailablePolicies": [
+                    {
+                        "type": "CANCEL_BEFORE",
+                        "priceBreakdown": {
+                            "total": {
+                                "currencyCode": "CAD",
+                                "units": 0,
+                                "nanos": 0
+                            },
+                            "baseFare": {
+                                "currencyCode": "CAD",
+                                "units": 0,
+                                "nanos": 0
+                            },
+                            "fee": {
+                                "currencyCode": "CAD",
+                                "units": 0,
+                                "nanos": 0
+                            },
+                            "tax": {
+                                "currencyCode": "CAD",
+                                "units": 0,
+                                "nanos": 0
+                            }
+                        }
+                    },
+                    {
+                        "type": "CHANGE_BEFORE",
+                        "priceBreakdown": {
+                            "total": {
+                                "currencyCode": "CAD",
+                                "units": 0,
+                                "nanos": 0
+                            },
+                            "baseFare": {
+                                "currencyCode": "CAD",
+                                "units": 0,
+                                "nanos": 0
+                            },
+                            "fee": {
+                                "currencyCode": "CAD",
+                                "units": 0,
+                                "nanos": 0
+                            },
+                            "tax": {
+                                "currencyCode": "CAD",
+                                "units": 0,
+                                "nanos": 0
+                            }
+                        }
+                    }
+                ]
+            }
+        ],
+        "appliedDiscounts": [],
+        "offerKeyToHighlight": "1_FZ354_2_FZ353.ISB20250519.DXB20250531",
+        "baggagePolicies": [
+            {
+                "code": "FZ",
+                "name": "Fly Dubai",
+                "url": "https://www.flydubai.com/en/flying-with-us/baggage/"
+            }
+        ],
+        "extraProductDisplayRequirements": {},
+        "unifiedPriceBreakdown": {
+            "price": {
+                "currencyCode": "CAD",
+                "units": 1163,
+                "nanos": 80000000
+            },
+            "items": [
+                {
+                    "scope": "FLIGHT_ADULT",
+                    "id": "flight_adult",
+                    "title": "Adult (1)",
+                    "price": {
+                        "currencyCode": "CAD",
+                        "units": 1163,
+                        "nanos": 80000000
+                    },
+                    "items": [
+                        {
+                            "id": "flight_adult-basefare",
+                            "title": "Flight fare",
+                            "price": {
+                                "currencyCode": "CAD",
+                                "units": 986,
+                                "nanos": 850000000
+                            },
+                            "items": []
+                        },
+                        {
+                            "id": "flight_adult-tax",
+                            "title": "Taxes and airline fees",
+                            "price": {
+                                "currencyCode": "CAD",
+                                "units": 176,
+                                "nanos": 230000000
+                            },
+                            "items": [
+                                {
+                                    "id": "flight_adult-tax-passenger_service_charge_international",
+                                    "title": "Passenger Service Charge - International",
+                                    "price": {
+                                        "currencyCode": "CAD",
+                                        "units": 28,
+                                        "nanos": 550000000
+                                    },
+                                    "items": []
+                                },
+                                {
+                                    "id": "flight_adult-tax-advanced_passenger_information_fee",
+                                    "title": "Advanced passenger information fee",
+                                    "price": {
+                                        "currencyCode": "CAD",
+                                        "units": 3,
+                                        "nanos": 820000000
+                                    },
+                                    "items": []
+                                },
+                                {
+                                    "id": "flight_adult-tax-passengers_security_safety_service_fees",
+                                    "title": "Passengers Security & Safety Service Fees",
+                                    "price": {
+                                        "currencyCode": "CAD",
+                                        "units": 1,
+                                        "nanos": 910000000
+                                    },
+                                    "items": []
+                                },
+                                {
+                                    "id": "flight_adult-tax-tfee_dummy",
+                                    "title": "TFEE Dummy",
+                                    "price": {
+                                        "currencyCode": "CAD",
+                                        "units": 25,
+                                        "nanos": 30000000
+                                    },
+                                    "items": []
+                                },
+                                {
+                                    "id": "flight_adult-tax-infrastructure_development_charges",
+                                    "title": "Infrastructure Development Charges",
+                                    "price": {
+                                        "currencyCode": "CAD",
+                                        "units": 13,
+                                        "nanos": 920000000
+                                    },
+                                    "items": []
+                                },
+                                {
+                                    "id": "flight_adult-tax-passenger_facilities_charge",
+                                    "title": "Passenger Facilities Charge ",
+                                    "price": {
+                                        "currencyCode": "CAD",
+                                        "units": 17,
+                                        "nanos": 130000000
+                                    },
+                                    "items": []
+                                },
+                                {
+                                    "id": "flight_adult-tax-bank_handling_charge",
+                                    "title": "Bank Handling Charge",
+                                    "price": {
+                                        "currencyCode": "CAD",
+                                        "units": 13,
+                                        "nanos": 750000000
+                                    },
+                                    "items": []
+                                },
+                                {
+                                    "id": "flight_adult-tax-embarkation_fee",
+                                    "title": "Embarkation fee",
+                                    "price": {
+                                        "currencyCode": "CAD",
+                                        "units": 9,
+                                        "nanos": 950000000
+                                    },
+                                    "items": []
+                                },
+                                {
+                                    "id": "flight_adult-tax-federal_excise_duty",
+                                    "title": "Federal Excise Duty",
+                                    "price": {
+                                        "currencyCode": "CAD",
+                                        "units": 62,
+                                        "nanos": 170000000
+                                    },
+                                    "items": []
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "addedItems": []
+        },
+        "carbonEmissions": {
+            "footprintForOffer": {
+                "quantity": 298.86,
+                "unit": "KG",
+                "status": "LOWER",
+                "average": 352.28,
+                "percentageDifference": 15
+            },
+            "faqUrl": "https://secure.booking.com/help/faq/40/RmxpZ2h0cyAtIEZBUXMgLSBDTzIgMTA5ODcw?category=flights_faq_topic_booking&render_html=1&lang=en-gb"
+        },
+        "displayOptions": {
+            "skipExtrasPage": false
+        },
+        "personalisationSegments": [
+            "SOLO_EXPLORER",
+            "MEDIUM_HAUL_TRIP",
+            "SOLO_TRAVELLER"
+        ]
+    }
+}
