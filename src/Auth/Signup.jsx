@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getAuth, createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+// Remove Firebase storage imports
 import { db } from "../firebase";
 import flightImage from "../assets/flight.png";
 import { toast } from "react-toastify";
+
 export default function Signup() {
   const [formData, setFormData] = useState({
     name: "",
@@ -40,35 +41,64 @@ export default function Signup() {
     return password.length >= 6; // You can add more conditions
   };
 
-  // Upload profile picture to Firebase Storage
-  const uploadProfilePicture = async (file, userId) => {
+  // Cloudinary upload function using signed upload
+  const uploadToCloudinary = async (file, userId) => {
     if (!file) return null;
-
-    const storage = getStorage();
-    const storageRef = ref(storage, `profilePictures/${userId}/${file.name}`);
-    const uploadTask = uploadBytesResumable(storageRef, file);
-
-    return new Promise((resolve, reject) => {
-      uploadTask.on(
-        "state_changed",
-        (snapshot) => {
-          // Progress tracking (optional)
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          console.log(`Upload is ${progress}% done`);
-        },
-        (error) => {
-          reject(error);
-        },
-        () => {
-          // Upload completed successfully
-          getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-            resolve(downloadURL);
-          });
-        }
-      );
-    });
+    
+    const cloudName = import.meta.env.VITE_CLOUDNAME;
+    const apiKey = import.meta.env.VITE_API_KEY_C;
+    const apiSecret = import.meta.env.VITE_API_KEY_SECRET_C;
+    
+    try {
+      const timestamp = Math.floor(Date.now() / 1000).toString();
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("api_key", apiKey);
+      formData.append("timestamp", timestamp);
+      formData.append("folder", `user_profiles/${userId}`);
+      
+      // For signed uploads, we need to generate a signature
+      // Note: In production, signature should be generated on the server
+      const generateSignature = async (params) => {
+        const crypto = await import('crypto-js');
+        const stringToSign = Object.keys(params)
+          .sort()
+          .map(key => `${key}=${params[key]}`)
+          .join('&');
+        
+        return crypto.SHA1(stringToSign + apiSecret).toString();
+      };
+      
+      const signature = await generateSignature({
+        timestamp: timestamp,
+        folder: `user_profiles/${userId}`,
+      });
+      
+      formData.append("signature", signature);
+      
+      console.log("Uploading to Cloudinary with cloud name:", cloudName);
+      
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: "POST",
+        body: formData
+      });
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        console.error("Cloudinary error details:", data);
+        throw new Error(`Cloudinary upload failed: ${data.error.message}`);
+      }
+      
+      console.log("Cloudinary upload successful:", data);
+      return data.secure_url;
+    } catch (error) {
+      console.error("Error uploading to Cloudinary:", error);
+      toast.error("Failed to upload profile picture");
+      throw error;
+    }
   };
-
+  
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -86,8 +116,30 @@ export default function Signup() {
 
     try {
       setUploading(true);
-
-      // Create user in Firebase Auth
+      
+      // Upload profile picture to Cloudinary first
+      let profilePictureUrl = "";
+      if (profilePicture) {
+        try {
+          // Generate a temporary ID for folder structure since we don't have userId yet
+          const tempId = Date.now().toString();
+          profilePictureUrl = await uploadToCloudinary(profilePicture, tempId);
+          console.log("Profile picture uploaded successfully to Cloudinary!");
+          console.log("Image URL:", profilePictureUrl);
+          console.log("Image location in Cloudinary:", `user_profiles/${tempId}`);
+          
+          if (!profilePictureUrl) {
+            throw new Error("Failed to upload profile picture");
+          }
+        } catch (error) {
+          console.error("Error uploading to Cloudinary:", error);
+          toast.error("Failed to upload profile picture. Please try again.");
+          setUploading(false);
+          return; // Exit early if image upload fails
+        }
+      }
+      
+      // Create user in Firebase Auth only if image upload succeeded (or no image was selected)
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         formData.email,
@@ -95,29 +147,29 @@ export default function Signup() {
       );
 
       const user = userCredential.user;
-      const userId = user.uid; // Get the Firebase user ID
+      const userId = user.uid;
 
       // Send email verification link
       await sendEmailVerification(user);
-      toast.success("Account created successfully! Please verify your email.");
 
-      // Upload profile picture to Firebase Storage
-      let profilePictureUrl = "";
-      if (profilePicture) {
-        profilePictureUrl = await uploadProfilePicture(profilePicture, userId);
-      }
-
+      // Create user document in Firestore
       await setDoc(doc(db, "users", userId), {
         uid: userId,
         name: formData.name,
         email: formData.email,
         travelClass: formData.travelClass,
         profilePictureUrl, 
-        emailVerified: false, 
+        emailVerified: false,
+        createdAt: new Date().toISOString(),
       });
 
+      toast.success("Account created successfully! Please verify your email.");
+      navigate("/login");
+      
     } catch (error) {
+      console.error("Signup error:", error);
       setError(error.message);
+      toast.error("Failed to create account. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -185,17 +237,31 @@ export default function Signup() {
             >
               <option value="Economy">Economy</option>
               <option value="Business">Business</option>
-            </select>
-
-            {/* Profile Picture Upload */}
+            </select>            {/* Profile Picture Upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Profile Picture</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleProfilePictureChange}
-                className="w-full p-2 border border-gray-300 rounded"
-              />
+              <div className="flex flex-col space-y-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfilePictureChange}
+                  className="w-full p-2 border border-gray-300 rounded"
+                />
+                
+                {/* Image Preview */}
+                {profilePicture && (
+                  <div className="mt-2">
+                    <img 
+                      src={URL.createObjectURL(profilePicture)} 
+                      alt="Profile Preview" 
+                      className="w-24 h-24 object-cover rounded-full border-2 border-blue-950"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {profilePicture.name} ({Math.round(profilePicture.size / 1024)} KB)
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
             <button

@@ -32,6 +32,7 @@ import Payment from "./Flights/Payment";
 import HotelSearch from "./Pages/Hotels";
 import BudgetPlanner from './Planner/BudgetPlanner';
 import UserHotels from "./Pages/UserHotels";
+import CloudinaryUploadExample from "./Pages/CloudinaryUploadExample";
 
 // UserDasboard 
 import Sidebar from "./Components/Sidebar";
@@ -133,9 +134,9 @@ function App() {
             <Route path="/confirm" element={<Confirm />} />
             <Route path="/flight-details" element={<FlightDetails />} />
             <Route path="/payment" element={<Payment />} />
-            <Route path="/taxi" element={<Taxi />} />
-            <Route path="/hotels" element={<HotelSearch />} />
+            <Route path="/taxi" element={<Taxi />} />            <Route path="/hotels" element={<HotelSearch />} />
             <Route path="/budget-planner" element={<BudgetPlanner />} />
+            <Route path="/upload-example" element={<CloudinaryUploadExample />} />
             <Route
               path="/profile/*"
               element={
