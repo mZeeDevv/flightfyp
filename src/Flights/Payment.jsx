@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { pdf } from '@react-pdf/renderer';
+import { pdf } from '@react-pdf/renderer'; // Remove PDFViewer import
 import FlightInvoicePDF from '../Components/FlightInvoice';
 import { db } from '../firebase';
 import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, getStorage } from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
-import { logUserActivity } from "../services/LoggingService"; // Import logging service
+import { logUserActivity } from "../services/LoggingService";
 
 export default function Payment() {
   const location = useLocation();
@@ -22,7 +21,7 @@ export default function Payment() {
   const [transactionId, setTransactionId] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userData, setUserData] = useState(null);
-  const storage = getStorage();
+  // Remove PDF preview states
 
   useEffect(() => {
     const auth = getAuth();
@@ -269,10 +268,11 @@ export default function Payment() {
       const newTransactionId = Math.random().toString(36).substr(2, 9);
       console.log("Generated transaction ID:", newTransactionId);
       
+      // Generate PDF blob
       const pdfBlob = await generatePDFBlob(details, newTransactionId);
-      const storageRef = ref(storage, `invoices/${newTransactionId}.pdf`);
-      await uploadBytes(storageRef, pdfBlob);
-      const pdfUrl = await getDownloadURL(storageRef);
+      
+      // Upload PDF to Cloudinary
+      const pdfUrl = await uploadPdfToCloudinary(pdfBlob, newTransactionId);
       
       // Log activity if not already logged in the Flights component
       const flightLogDetails = {
@@ -293,6 +293,7 @@ export default function Payment() {
         transactionId: newTransactionId,
         invoiceUrl: pdfUrl,
       });
+      
       setFlightDetails(details);
       setTransactionId(newTransactionId);
       setPaymentSuccess(true);
@@ -301,6 +302,65 @@ export default function Payment() {
       console.error("Error processing payment: ", error);
     } finally {
       setProcessing(false);
+    }
+  };
+  
+  const uploadPdfToCloudinary = async (pdfBlob, transactionId) => {
+    const cloudName = import.meta.env.VITE_CLOUDNAME;
+    const apiKey = import.meta.env.VITE_API_KEY_C;
+    const apiSecret = import.meta.env.VITE_API_KEY_SECRET_C;
+    
+    try {
+      const timestamp = Math.floor(Date.now() / 1000).toString();
+      const formData = new FormData();
+      
+      // Convert the blob to a file with a specific name
+      const file = new File([pdfBlob], `invoice_${transactionId}.pdf`, { type: 'application/pdf' });
+      formData.append("file", file);
+      formData.append("api_key", apiKey);
+      formData.append("timestamp", timestamp);
+      formData.append("folder", `flight_invoices`);
+      
+      // Generate signature for Cloudinary
+      const generateSignature = async (params) => {
+        const crypto = await import('crypto-js');
+        const stringToSign = Object.keys(params)
+          .sort()
+          .map(key => `${key}=${params[key]}`)
+          .join('&');
+        
+        return crypto.SHA1(stringToSign + apiSecret).toString();
+      };
+      
+      const signature = await generateSignature({
+        timestamp: timestamp,
+        folder: 'flight_invoices',
+      });
+      
+      formData.append("signature", signature);
+      
+      console.log("Uploading PDF to Cloudinary...");
+      
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/raw/upload`, {
+        method: "POST",
+        body: formData
+      });
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        console.error("Cloudinary error details:", data);
+        throw new Error(`Cloudinary upload failed: ${data.error.message}`);
+      }
+      
+      console.log("PDF uploaded successfully to Cloudinary:", data);
+      console.log("PDF URL:", data.secure_url);
+      console.log("PDF location in Cloudinary:", `flight_invoices/invoice_${transactionId}.pdf`);
+      
+      return data.secure_url;
+    } catch (error) {
+      console.error("Error uploading PDF to Cloudinary:", error);
+      throw error;
     }
   };
 
