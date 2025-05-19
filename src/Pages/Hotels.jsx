@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from "react";
-import { FaHotel, FaSearch, FaSpinner, FaStar, FaTimes, FaCreditCard, FaFileDownload } from "react-icons/fa";
+import { FaHotel, FaSearch, FaSpinner, FaStar, FaTimes, FaCreditCard, FaFileDownload, FaInfoCircle } from "react-icons/fa";
 import "../App.css";
 import { addDoc, collection, updateDoc, doc } from "firebase/firestore";
 import { db } from "../firebase";
-import { getStorage } from "firebase/storage";
+// Remove Firebase Storage import
+import HotelDetailsSidebar from "../Components/HotelDetailsSidebar";
 
 // Define USD to PKR conversion rate
 const USD_TO_PKR_RATE = 280;
 import { toast } from "react-toastify";
 import { PDFDownloadLink } from "@react-pdf/renderer";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+// Remove Firebase Storage related imports
 import { pdf } from "@react-pdf/renderer";
 import HotelInvoicePDF from "../Components/HotelInvoicePDF";
 import { useNavigate } from "react-router-dom";
 import { logUserActivity } from "../services/LoggingService"; // Import logging service
 import Hotel from '../../src/assets/Hotel.jpg'
+
 export default function HotelSearch() {
-    const storage = getStorage();
+    // Remove Firebase storage reference
     const [destination, setDestination] = useState("");
     const [destId, setDestId] = useState("");
     const [adults, setAdults] = useState(1);
@@ -28,6 +30,7 @@ export default function HotelSearch() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [destinationSuggestions, setDestinationSuggestions] = useState([]);
+    
     // Payment and booking related states
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [selectedHotel, setSelectedHotel] = useState(null);
@@ -42,11 +45,17 @@ export default function HotelSearch() {
     const [processingPayment, setProcessingPayment] = useState(false);
     const [invoiceUrl, setInvoiceUrl] = useState("");
     const [uploadingInvoice, setUploadingInvoice] = useState(false);
+    
+    // Hotel details sidebar state
+    const [showDetailsSidebar, setShowDetailsSidebar] = useState(false);
+    const [detailsHotelId, setDetailsHotelId] = useState(null);
 
     const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
     const API_HOST = "booking-com15.p.rapidapi.com";
     const navigate = useNavigate();
-    const uid = localStorage.getItem("userId");    // Fetch destination suggestions
+    const uid = localStorage.getItem("userId");
+    
+    // Fetch destination suggestions
     const fetchDestinationSuggestions = async (query) => {
         if (!query) {
             setDestinationSuggestions([]);
@@ -145,7 +154,9 @@ export default function HotelSearch() {
         const arrival = new Date(arrivalDate);
         const departure = new Date(arrival);
         departure.setDate(arrival.getDate() + parseInt(daysOfStay));
-        const departureDate = departure.toISOString().split('T')[0];        const url = new URL(`https://${API_HOST}/api/v1/hotels/searchHotels`);
+        const departureDate = departure.toISOString().split('T')[0];
+        
+        const url = new URL(`https://${API_HOST}/api/v1/hotels/searchHotels`);
         url.searchParams.append("dest_id", destId);
         url.searchParams.append("search_type", "CITY");  // Always use CITY for consistent results
         url.searchParams.append("adults", adults);
@@ -166,7 +177,7 @@ export default function HotelSearch() {
                 "x-rapidapi-host": API_HOST,
             },
         };
-
+        
         // Debug: Log request details
         console.log("API Request URL:", url.toString());
         console.log("API Request Headers:", options.headers);
@@ -223,14 +234,17 @@ export default function HotelSearch() {
         const value = e.target.value;
         setAdults(value === '' ? '' : Math.max(1, parseInt(value) || 1));
     };
+    
     const handleRoomQtyChange = (e) => {
         const value = e.target.value;
         setRoomQty(value === '' ? '' : Math.max(1, parseInt(value) || 1));
     };
+    
     const handleDaysOfStayChange = (e) => {
         const value = e.target.value;
         setDaysOfStay(value === '' ? '' : Math.max(1, parseInt(value) || 1));
     };
+    
     const handleChildrenAgeChange = (e) => {
         const input = e.target.value;
         if (input === '') {
@@ -246,196 +260,6 @@ export default function HotelSearch() {
                 return isNaN(parsed) ? 0 : parsed;
             });
         setChildrenAge(ages);
-    };
-
-    // Component did mount effect to check API key
-    React.useEffect(() => {
-        if (!RAPIDAPI_KEY || RAPIDAPI_KEY === "undefined") {
-            console.error("API Key is missing or invalid. Check your environment variables.");
-            setError("API Key configuration error. Please check the console for details.");
-        } else {
-            console.log("API Key is configured");
-        }
-    }, []);
-
-    // Book hotel function
-    const handleBookHotel = (hotel) => {
-        if (!uid) {
-            toast.error("Please login to book a hotel");
-            return;
-        }
-        
-        setSelectedHotel(hotel);
-        setShowPaymentModal(true);  
-    };
-
-    // Generate random transaction ID
-    const generateTransactionId = () => {
-        return 'HTL-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-    };
-
-    // Process payment
-    const processPayment = async (e) => {
-        e.preventDefault();
-        // Validate card details
-        if (!cardNumber || !cardExpiry || !cardCVC || !cardName) {
-            toast.error("Please fill in all card details");
-            return;
-        }
-
-        if (cardNumber.length < 16) {
-            toast.error("Please enter a valid card number");
-            return;
-        }
-
-        if (cardExpiry.length < 5) {
-            toast.error("Please enter a valid expiry date (MM/YY)");
-            return;
-        }
-
-        if (cardCVC.length < 3) {
-            toast.error("Please enter a valid CVC");
-            return;
-        }
-
-        setProcessingPayment(true);
-        const newTransactionId = generateTransactionId();
-        setTransactionId(newTransactionId);
-        try {            // Calculate total price in USD
-            const totalPrice = Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value) * daysOfStay;
-            // Calculate total price in PKR
-            const totalPricePKR = totalPrice * USD_TO_PKR_RATE;
-            
-            // Save booking to Firebase
-            const bookingDetails = {
-                userId: uid,
-                transactionId: newTransactionId,
-                createdAt: new Date().toISOString(),
-                hotel: {
-                    id: selectedHotel.hotel_id,
-                    name: selectedHotel.property.name,
-                    location: selectedHotel.property.address || "",
-                    pricePerNight: Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value),
-                    totalPrice: totalPrice,
-                    daysOfStay: daysOfStay,
-                    checkInDate: arrivalDate,
-                    rating: selectedHotel.property.reviewScore || "N/A",
-                    imageUrl: selectedHotel.property.photoUrls[0] || "",
-                    latitude: selectedHotel.property.latitude,
-                    longitude: selectedHotel.property.longitude
-                },                paymentDetails: {
-                    cardLast4: cardNumber.slice(-4),
-                    cardName: cardName,
-                    paymentMethod: paymentMethod,
-                    paymentStatus: "confirmed",
-                    amount: totalPrice
-                }
-            };
-
-            // Save to Firebase
-            const docRef = await addDoc(collection(db, "user_hotels"), bookingDetails);
-            console.log("Hotel booking saved with ID: ", docRef.id);
-            // Log user hotel booking activity
-            const hotelLogDetails = {
-                hotelName: selectedHotel.property.name,
-                location: selectedHotel.property.address || "",
-                checkInDate: arrivalDate,
-                checkOutDate: getCheckoutDate(),
-                daysOfStay: daysOfStay,
-                amount: totalPrice
-            };
-            
-            await logUserActivity('booked', 'hotel', hotelLogDetails);
-            
-            // Set booking data for invoice
-            const updatedBookingData = {
-                ...bookingDetails,
-                docId: docRef.id
-            };
-            setBookingData(updatedBookingData);
-            
-            // Generate and upload PDF invoice
-            await generateAndUploadInvoice(updatedBookingData, newTransactionId, docRef.id);
-            
-            // Show success and close modal
-            setBookingComplete(true);
-            toast.success("Hotel booking successful!");
-            
-            // Set processing to false
-            setProcessingPayment(false);
-        } catch (error) {
-            console.error("Error saving hotel booking:", error);
-            toast.error("Failed to process booking. Please try again.");
-            setProcessingPayment(false);
-        }
-    };
-
-    // Generate and upload invoice to Firebase Storage
-    const generateAndUploadInvoice = async (bookingData, transId, docId) => {
-        try {
-            setUploadingInvoice(true);
-              // Create the PDF blob
-            const invoiceBlob = await pdf(
-                <HotelInvoicePDF 
-                    bookingDetails={{
-                        ...bookingData,
-                        customerName: cardName
-                    }} 
-                    transactionId={transId}
-                    paymentMethod={paymentMethod}
-                />
-            ).toBlob();
-            
-            // Create a reference to Firebase Storage
-            const storageRef = ref(storage, `invoices/hotels/${uid}/${transId}.pdf`);
-            
-            // Upload the PDF to Firebase Storage
-            const uploadTask = uploadBytesResumable(storageRef, invoiceBlob);
-            
-            // Return a promise that resolves when the upload is complete
-            return new Promise((resolve, reject) => {
-                uploadTask.on(
-                    "state_changed",
-                    (snapshot) => {
-                        // Progress function
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        console.log(`Upload is ${progress}% complete`);
-                    },
-                    (error) => {
-                        // Error function
-                        console.error("Error uploading invoice:", error);
-                        setUploadingInvoice(false);
-                        reject(error);
-                    },
-                    async () => {
-                        // Complete function
-                        try {
-                            // Get the download URL
-                            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                            console.log("Invoice available at:", downloadURL);
-                            
-                            // Update the Firestore document with the invoice URL
-                            await updateDoc(doc(db, "user_hotels", docId), {
-                                invoiceUrl: downloadURL
-                            });
-                            
-                            // Set the invoice URL in state
-                            setInvoiceUrl(downloadURL);
-                            setUploadingInvoice(false);
-                            resolve(downloadURL);
-                        } catch (error) {
-                            console.error("Error getting download URL:", error);
-                            setUploadingInvoice(false);
-                            reject(error);
-                        }
-                    }
-                );
-            });
-        } catch (error) {
-            console.error("Error generating and uploading invoice:", error);
-            setUploadingInvoice(false);
-            throw error;
-        }
     };
 
     // Format card number with spaces
@@ -477,6 +301,7 @@ export default function HotelSearch() {
         const formattedValue = formatCardNumber(e.target.value);
         setCardNumber(formattedValue);
     };
+    
     // Handle card expiry input
     const handleCardExpiryChange = (e) => {
         const formattedValue = formatCardExpiry(e.target.value);
@@ -502,7 +327,7 @@ export default function HotelSearch() {
     const goToBookings = () => {
         navigate("/my-hotels");
     };
-
+    
     // Get formatted check-out date
     const getCheckoutDate = () => {
         if (!arrivalDate) return '';
@@ -511,6 +336,218 @@ export default function HotelSearch() {
         const checkout = new Date(arrival);
         checkout.setDate(arrival.getDate() + parseInt(daysOfStay));
         return checkout.toISOString().split('T')[0];
+    };
+
+    // Component did mount effect to check API key
+    React.useEffect(() => {
+        if (!RAPIDAPI_KEY || RAPIDAPI_KEY === "undefined") {
+            console.error("API Key is missing or invalid. Check your environment variables.");
+            setError("API Key configuration error. Please check the console for details.");
+        } else {
+            console.log("API Key is configured");
+        }
+    }, []);
+
+    // Book hotel function - Define this BEFORE handleBookHotelFromDetails
+    const handleBookHotel = (hotel) => {
+        if (!uid) {
+            toast.error("Please login to book a hotel");
+            return;
+        }
+        
+        setSelectedHotel(hotel);
+        setShowPaymentModal(true);  
+    };
+
+    // Function to handle viewing hotel details
+    const handleViewHotelDetails = (hotel) => {
+        setDetailsHotelId(hotel.hotel_id);
+        setShowDetailsSidebar(true);
+    };
+
+    // Handle hotel booking from the details sidebar
+    const handleBookHotelFromDetails = (hotelDetails) => {
+        // Find the hotel in our existing data
+        const hotel = hotelData?.data?.hotels?.find(h => h.hotel_id === detailsHotelId);
+        
+        if (hotel) {
+            handleBookHotel(hotel);
+        } else {
+            // If we can't find the hotel in our existing data, create a booking object from the details
+            const roomType = hotelDetails.roomTypes?.[0];
+            const bookingHotel = {
+                hotel_id: hotelDetails.hotel_id || detailsHotelId,
+                property: {
+                    name: hotelDetails.basicPropertyData?.name || hotelDetails.hotel_name,
+                    address: hotelDetails.location?.address || hotelDetails.address,
+                    priceBreakdown: {
+                        grossPrice: {
+                            value: roomType?.roomPrices?.totalPrice || 
+                                   hotelDetails.composite_price_breakdown?.gross_amount?.value ||
+                                   hotelDetails.product_price_breakdown?.gross_amount?.value || 0
+                        }
+                    },
+                    reviewScore: hotelDetails.reviewScore?.score || hotelDetails.review_nr,
+                    photoUrls: hotelDetails.hotelPhotos?.map(photo => photo.url_max) || 
+                               hotelDetails.rawData?.photoUrls || 
+                               [hotelDetails.rooms?.[Object.keys(hotelDetails.rooms)[0]]?.photos?.[0]?.url_original],
+                    latitude: hotelDetails.location?.latitude || hotelDetails.latitude,
+                    longitude: hotelDetails.location?.longitude || hotelDetails.longitude
+                }
+            };
+            handleBookHotel(bookingHotel);
+        }
+    };
+
+    // Generate random transaction ID
+    const generateTransactionId = () => {
+        return 'HTL-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+    };
+
+    // Handle payment processing
+    const processPayment = async (e) => {
+        e.preventDefault();
+        setProcessingPayment(true);
+        setError("");
+        
+        // Generate a transaction ID
+        const transactionId = generateTransactionId();
+        setTransactionId(transactionId);
+
+        // Prepare booking data with the structure expected by the HotelInvoicePDF component
+        const bookingDetails = {
+            transactionId,
+            userId: uid,
+            hotelId: selectedHotel.hotel_id,
+            hotel: {
+                id: selectedHotel.hotel_id,
+                name: selectedHotel.property.name,
+                location: selectedHotel.property.address || "",
+                pricePerNight: Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value / daysOfStay),
+                totalPrice: Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value),
+                daysOfStay: daysOfStay,
+                checkInDate: arrivalDate,
+                checkOutDate: getCheckoutDate(),
+                rating: selectedHotel.property.reviewScore || "N/A",
+                imageUrl: selectedHotel.property.photoUrls[0] || "",
+            },
+            roomQty,
+            adults,
+            childrenAge,
+            arrivalDate,
+            departureDate: getCheckoutDate(),
+            totalAmount: Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value),
+            paymentMethod,
+            status: "pending",
+            createdAt: new Date().toISOString()
+        };
+        setBookingData(bookingDetails);
+
+        try {
+            // 1. Add booking record to Firestore
+            const bookingDocRef = await addDoc(collection(db, "user_hotels"), bookingDetails);
+            console.log("Booking record created with ID:", bookingDocRef.id);
+            
+            // 2. Generate and upload invoice PDF to Cloudinary
+            const invoicePdfBlob = await pdf(
+                <HotelInvoicePDF 
+                    bookingDetails={{
+                        ...bookingDetails,
+                        customerName: cardName,
+                    }} 
+                    transactionId={transactionId}
+                    paymentMethod={paymentMethod}
+                />
+            ).toBlob();
+            
+            setUploadingInvoice(true);
+            
+            // Upload PDF to Cloudinary
+            const pdfUrl = await uploadPdfToCloudinary(invoicePdfBlob, transactionId);
+            setInvoiceUrl(pdfUrl);
+            setUploadingInvoice(false);
+            
+            // 3. Update booking record with Cloudinary invoice URL and change status to 'confirmed'
+            await updateDoc(doc(db, "user_hotels", bookingDocRef.id), {
+                invoiceUrl: pdfUrl,
+                status: "confirmed",
+                updatedAt: new Date().toISOString()
+            });
+            
+            // 4. No need to add another duplicate record to user_hotels collection, update the existing one instead
+            console.log("User hotel booking record updated with Cloudinary invoice URL");
+            
+            // Show success and mark booking as complete
+            setBookingComplete(true);
+            setProcessingPayment(false);
+            toast.success("Hotel booking successful!");
+            
+        } catch (error) {
+            console.error("Error processing payment:", error);
+            setError("Error processing payment. Please try again.");
+            setProcessingPayment(false);
+            toast.error("Failed to process booking. Please try again.");
+        }
+    };
+
+    // Function to upload PDF to Cloudinary
+    const uploadPdfToCloudinary = async (pdfBlob, transactionId) => {
+        const cloudName = import.meta.env.VITE_CLOUDNAME;
+        const apiKey = import.meta.env.VITE_API_KEY_C;
+        const apiSecret = import.meta.env.VITE_API_KEY_SECRET_C;
+        
+        try {
+            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const formData = new FormData();
+            
+            // Convert the blob to a file with a specific name
+            const file = new File([pdfBlob], `hotel_invoice_${transactionId}.pdf`, { type: 'application/pdf' });
+            formData.append("file", file);
+            formData.append("api_key", apiKey);
+            formData.append("timestamp", timestamp);
+            formData.append("folder", `hotel_invoices`);
+            
+            // Generate signature for Cloudinary
+            const generateSignature = async (params) => {
+                const crypto = await import('crypto-js');
+                const stringToSign = Object.keys(params)
+                    .sort()
+                    .map(key => `${key}=${params[key]}`)
+                    .join('&');
+                
+                return crypto.SHA1(stringToSign + apiSecret).toString();
+            };
+            
+            const signature = await generateSignature({
+                timestamp: timestamp,
+                folder: 'hotel_invoices',
+            });
+            
+            formData.append("signature", signature);
+            
+            console.log("Uploading hotel PDF to Cloudinary...");
+            
+            const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/raw/upload`, {
+                method: "POST",
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                console.error("Cloudinary error details:", data);
+                throw new Error(`Cloudinary upload failed: ${data.error.message}`);
+            }
+            
+            console.log("Hotel PDF uploaded successfully to Cloudinary:", data);
+            console.log("PDF URL:", data.secure_url);
+            console.log("PDF location in Cloudinary:", `hotel_invoices/hotel_invoice_${transactionId}.pdf`);
+            
+            return data.secure_url;
+        } catch (error) {
+            console.error("Error uploading hotel PDF to Cloudinary:", error);
+            throw error;
+        }
     };
 
     return (
@@ -644,7 +681,7 @@ export default function HotelSearch() {
                     <div className="mt-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 rounded">
                         <p className="flex items-center">
                             <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"></path>
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-4 4a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"></path>
                             </svg>
                             {error}
                         </p>
@@ -670,7 +707,8 @@ export default function HotelSearch() {
                                             <span className="text-gray-700">
                                                 {hotel.property.reviewScore} ({hotel.property.reviewCount} reviews)
                                             </span>
-                                        </div>                                        <p className="text-gray-600 mb-1">
+                                        </div>
+                                        <p className="text-gray-600 mb-1">
                                             ${Math.floor(hotel.property.priceBreakdown.grossPrice.value / daysOfStay)} USD / 
                                             Rs. {Math.floor(hotel.property.priceBreakdown.grossPrice.value / daysOfStay) * USD_TO_PKR_RATE} PKR per night
                                         </p>
@@ -687,12 +725,14 @@ export default function HotelSearch() {
                                         >
                                             View on Google Maps
                                         </a>
-                                        <button 
-                                            onClick={() => handleBookHotel(hotel)} 
-                                            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-all mt-4"
-                                        >
-                                            Book Now
-                                        </button>
+                                        <div className="flex mt-4 space-x-2">
+                                            <button 
+                                                onClick={() => handleViewHotelDetails(hotel)} 
+                                                className="flex-1 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-all flex items-center justify-center"
+                                            >
+                                                <FaInfoCircle className="mr-1" /> VIEW DETAILS
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -917,6 +957,19 @@ export default function HotelSearch() {
                     </div>
                 </div>
             )}
+
+            {/* Hotel Details Sidebar using the HotelDetailsSidebar component */}
+            <HotelDetailsSidebar
+                hotelId={detailsHotelId}
+                isOpen={showDetailsSidebar}
+                onClose={() => setShowDetailsSidebar(false)}
+                arrivalDate={arrivalDate}
+                daysOfStay={daysOfStay}
+                adults={adults}
+                childrenAge={childrenAge}
+                roomQty={roomQty}
+                onBookNow={handleBookHotelFromDetails}
+            />
         </div>
     );
 }

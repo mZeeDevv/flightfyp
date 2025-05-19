@@ -32,7 +32,6 @@ import Payment from "./Flights/Payment";
 import HotelSearch from "./Pages/Hotels";
 import BudgetPlanner from './Planner/BudgetPlanner';
 import UserHotels from "./Pages/UserHotels";
-// import CloudinaryUploadExample from "./Pages/CloudinaryUploadExample";
 
 // UserDasboard 
 import Sidebar from "./Components/Sidebar";
