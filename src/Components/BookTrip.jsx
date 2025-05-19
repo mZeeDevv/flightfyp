@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { pdf } from '@react-pdf/renderer';
 import { db } from '../firebase';
 import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, getStorage } from 'firebase/storage';
+// Remove Firebase storage imports
 import { getAuth } from 'firebase/auth';
 import { toast } from 'react-toastify';
 import TripInvoicePDF from './TripInvoicePDF';
@@ -18,7 +18,8 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
   const [cvv, setCvv] = useState('');
   const [userData, setUserData] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const storage = getStorage();  // Calculate total amount from flight + hotel based on the actual structure we receive from TripDetails.jsx
+  // Remove Firebase storage instance
+  
   const hotelPricePerDay = parseFloat(tripData.hotel?.pricePerDay || 0);
   const hotelDaysOfStay = parseInt(tripData.hotel?.daysOfStay || 1);
   const hotelTotalPrice = tripData.hotel?.totalPrice || (hotelPricePerDay * hotelDaysOfStay);
@@ -244,16 +245,33 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
         }
       });
 
+      // Check if this is a round trip flight to correctly handle return flight data
+      const isRoundTrip = tripData.flight?.isRoundTrip || 
+                         (tripData.flight?.returnDepartureTime && tripData.flight?.returnArrivalTime) ||
+                         (tripData.flight?.tripType === "ROUNDTRIP");
+                         
+      console.log("Flight is round trip:", isRoundTrip);
+
       // Simulate payment processing
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       const newTransactionId = `TRIP-${Math.random().toString(36).substr(2, 9)}`;
       
-      // Generate and upload PDF
-      const pdfBlob = await generatePDFBlob(tripData, newTransactionId);
-      const storageRef = ref(storage, `trip_invoices/${newTransactionId}.pdf`);
-      await uploadBytes(storageRef, pdfBlob);
-      const pdfUrl = await getDownloadURL(storageRef);
+      // Make sure tripData includes isRoundTrip flag
+      const enhancedTripData = {
+        ...tripData,
+        flight: {
+          ...tripData.flight,
+          isRoundTrip: isRoundTrip,
+          tripType: isRoundTrip ? "ROUNDTRIP" : "ONEWAY"
+        }
+      };
+      
+      // Generate PDF with enhanced trip data
+      const pdfBlob = await generatePDFBlob(enhancedTripData, newTransactionId);
+      
+      // Upload PDF to Cloudinary instead of Firebase Storage
+      const pdfUrl = await uploadPdfToCloudinary(pdfBlob, newTransactionId);
       
       // Save trip data to Firebase
       await saveTripToFirebase(newTransactionId, pdfUrl);
@@ -271,6 +289,65 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
       toast.error("Failed to process payment. Please try again.");
     } finally {
       setProcessing(false);
+    }
+  };
+
+  // Add Cloudinary upload function for PDFs
+  const uploadPdfToCloudinary = async (pdfBlob, transactionId) => {
+    const cloudName = import.meta.env.VITE_CLOUDNAME;
+    const apiKey = import.meta.env.VITE_API_KEY_C;
+    const apiSecret = import.meta.env.VITE_API_KEY_SECRET_C;
+    
+    try {
+      const timestamp = Math.floor(Date.now() / 1000).toString();
+      const formData = new FormData();
+      
+      // Convert the blob to a file with a specific name
+      const file = new File([pdfBlob], `trip_invoice_${transactionId}.pdf`, { type: 'application/pdf' });
+      formData.append("file", file);
+      formData.append("api_key", apiKey);
+      formData.append("timestamp", timestamp);
+      formData.append("folder", `trip_invoices`);
+      
+      // Generate signature for Cloudinary
+      const generateSignature = async (params) => {
+        const crypto = await import('crypto-js');
+        const stringToSign = Object.keys(params)
+          .sort()
+          .map(key => `${key}=${params[key]}`)
+          .join('&');
+        
+        return crypto.SHA1(stringToSign + apiSecret).toString();
+      };
+      
+      const signature = await generateSignature({
+        timestamp: timestamp,
+        folder: 'trip_invoices',
+      });
+      
+      formData.append("signature", signature);
+      
+      console.log("Uploading Trip PDF to Cloudinary...");
+      
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/raw/upload`, {
+        method: "POST",
+        body: formData
+      });
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        console.error("Cloudinary error details:", data);
+        throw new Error(`Cloudinary upload failed: ${data.error.message}`);
+      }
+      
+      console.log("Trip PDF uploaded successfully to Cloudinary:", data);
+      console.log("PDF URL:", data.secure_url);
+      
+      return data.secure_url;
+    } catch (error) {
+      console.error("Error uploading PDF to Cloudinary:", error);
+      throw error;
     }
   };
 

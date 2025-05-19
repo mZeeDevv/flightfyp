@@ -342,8 +342,14 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         flight: 0,
         hotel: 0
     });    const handleFlightClick = (token, price, flightData) => {
+        const isRoundTrip = flightData.tripType === "ROUNDTRIP";
+        console.log(`Selected flight is round trip: ${isRoundTrip}`);
+        
         setSelectedFlightId(token);
-        setSelectedFlight(flightData);
+        setSelectedFlight({
+            ...flightData,
+            isRoundTrip // Add this flag so we can use it when creating the trip
+        });
         
         // Store original USD price (use parseFloat instead of parseInt to get decimal values)
         const usdPrice = parseFloat(price) || 0;
@@ -356,7 +362,8 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         // Pass both USD and PKR prices to parent component
         onFlightSelect(token, price, {
             usd: usdPrice,
-            pkr: Math.floor(usdPrice * USD_TO_PKR_RATE) // Floor the PKR value to remove decimals
+            pkr: Math.floor(usdPrice * USD_TO_PKR_RATE), // Floor the PKR value to remove decimals
+            isRoundTrip // Pass this to parent component too
         });
     };
       const handleHotelClick = (hotelId, price, hotelData) => {
@@ -396,12 +403,22 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
 
         // Always use USD for API requests to ensure consistent currency handling
         let url = `https://${API_HOST}/api/v1/flights/searchFlights?fromId=${fromId}&toId=${toId}&departDate=${departureDate}&currency_code=USD`;
-        if (returnDate) url += `&returnDate=${returnDate}`;
+        
+        // Check if returnDate is provided - this indicates a round trip
+        const isRoundTrip = Boolean(returnDate);
+        if (isRoundTrip) {
+            url += `&returnDate=${returnDate}`;
+            console.log("Round trip requested with return date:", returnDate);
+        } else {
+            console.log("One-way trip requested (no return date)");
+        }
+        
         if (cabinClass !== "Do not include in request") url += `&cabinClass=${cabinClass}`;
 
         console.log("Fetching flights with URL:", url);
         console.log("User budget (USD):", budget);
         console.log("User budget (PKR):", budget * USD_TO_PKR_RATE);
+        console.log("Is round trip?", isRoundTrip);
 
         const options = {
             method: "GET",
@@ -418,8 +435,23 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
 
             if (result.status === true && result.data?.flightOffers?.length > 0) {
                 console.log(`Found ${result.data.flightOffers.length} total flights before filtering`);
-                  // Filter flights based on USD budget
-                const filteredFlights = result.data.flightOffers.filter((flight) => {
+                
+                // First filter by trip type if needed
+                let filteredByTripType = result.data.flightOffers;
+                if (isRoundTrip) {
+                    // For round trips, only keep ROUNDTRIP flights
+                    filteredByTripType = filteredByTripType.filter(flight => {
+                        const isRoundTripFlight = flight.tripType === "ROUNDTRIP";
+                        if (!isRoundTripFlight) {
+                            console.log(`Filtering out one-way flight with token: ${flight.token}`);
+                        }
+                        return isRoundTripFlight;
+                    });
+                    console.log(`After filtering by trip type: ${filteredByTripType.length} round trip flights remain`);
+                }
+
+                // Then filter by budget
+                const filteredFlights = filteredByTripType.filter((flight) => {
                     // Parse price as a number to ensure proper comparison
                     const priceUSD = parseFloat(flight.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units) || Infinity;
                     const pricePKR = priceUSD * USD_TO_PKR_RATE;
@@ -428,7 +460,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                     const budgetUSD = parseFloat(budget) || 0;
                     const budgetPKR = budgetUSD * USD_TO_PKR_RATE;
                     
-                    console.log(`Flight: ${flight.transactionId}, Price: $${priceUSD} USD / Rs.${Math.floor(pricePKR)} PKR, Budget: $${budgetUSD} USD / Rs.${Math.floor(budgetPKR)} PKR`);
+                    console.log(`Flight: ${flight.transactionId}, Type: ${flight.tripType}, Price: $${priceUSD} USD / Rs.${Math.floor(pricePKR)} PKR, Budget: $${budgetUSD} USD / Rs.${Math.floor(budgetPKR)} PKR`);
                     
                     // Strict numerical comparison
                     const isWithinBudget = priceUSD <= budgetUSD;
@@ -438,7 +470,13 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                     return isWithinBudget;
                 });
 
-                console.log(`After filtering: ${filteredFlights.length} flights remain`);
+                console.log(`After filtering by budget: ${filteredFlights.length} flights remain`);
+                console.log("Trip types in filtered results:", 
+                    filteredFlights.map(f => f.tripType).reduce((acc, type) => {
+                        acc[type] = (acc[type] || 0) + 1;
+                        return acc;
+                    }, {})
+                );
                 
                 if (filteredFlights.length === 0) {
                     toast.warn("No flights found within your budget. Please consider increasing your budget.");
@@ -693,6 +731,14 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         fetchFlightDetails(token);
     };
     
+    // Calculate flight duration
+    const calculateDuration = (departureTime, arrivalTime) => {
+        if (!departureTime || !arrivalTime) return 0;
+        const depTime = new Date(departureTime).getTime();
+        const arrTime = new Date(arrivalTime).getTime();
+        return (arrTime - depTime) / (1000 * 60); // Duration in minutes
+    };
+    
     const fetchFlightDetails = async (token) => {
         if (!token) return;
         
@@ -700,6 +746,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
         setFlightDetailsError("");
         setFlightDetailsData(null);
         
+        // Keep using USD currency in API calls since PKR is not supported
         const url = `https://${API_HOST}/api/v1/flights/getFlightDetails?token=${token}&currency_code=USD`;
         const options = {
             method: "GET",
@@ -716,6 +763,15 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
             
             if (result.status === true && result.data) {
                 setFlightDetailsData(result.data);
+                
+                // Log additional details for debugging
+                if (result.data.segments && result.data.segments.length > 0) {
+                    console.log("Flight legs:", result.data.segments[0].legs);
+                    console.log("Trip type:", result.data.tripType);
+                    if (result.data.tripType === "ROUNDTRIP") {
+                        console.log("Return flight info:", result.data.segments[1]);
+                    }
+                }
             } else {
                 setFlightDetailsError("No flight details found.");
             }
@@ -820,7 +876,9 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                                                     </svg>
                                                                 </div>
                                                             </div>
-                                                            <span className="text-xs text-blue-400 font-medium mt-2">One-way</span>
+                                                            <span className="text-xs text-blue-400 font-medium mt-2">
+                                                                {deal.tripType === "ROUNDTRIP" ? "Round Trip" : "One-way"}
+                                                            </span>
                                                         </div>
                                                         <div className="text-right">
                                                             <h3 className="text-sm font-semibold text-gray-300">Arrival</h3>
@@ -1101,16 +1159,20 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                 </div>
             </div>
         
+            {/* Flight Details Sidebar */}
             {showFlightDetailsSidebar && (
                 <div className="fixed inset-0 z-50 overflow-hidden">
+                    {/* Overlay */}
                     <div 
                         className="absolute inset-0 bg-black bg-opacity-50"
                         onClick={closeFlightDetailsSidebar}
                     ></div>
                     
+                    {/* Sidebar */}
                     <div className="absolute inset-y-0 right-0 max-w-full flex">
                         <div className="relative w-screen max-w-md">
                             <div className="h-full bg-gray-800 shadow-xl flex flex-col overflow-y-auto">
+                                {/* Header */}
                                 <div className="px-4 py-6 bg-gray-900 flex items-center justify-between">
                                     <h2 className="text-xl font-bold text-white">Flight Details</h2>
                                     <button 
@@ -1123,128 +1185,567 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                     </button>
                                 </div>
                                 
-                                <div className="flex-1 px-4 py-6">
+                                {/* Content */}
+                                <div className="flex-1 px-4 py-6 overflow-y-auto">
                                     {loadingFlightDetails ? (
                                         <div className="flex justify-center items-center h-64">
                                             <Spinner />
                                         </div>
                                     ) : flightDetailsError ? (
-                                        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded">
+                                        <div className="bg-red-900 bg-opacity-60 border-l-4 border-red-500 text-red-100 p-4 mb-4 rounded">
                                             <p>{flightDetailsError}</p>
                                         </div>
                                     ) : flightDetailsData ? (
                                         <div className="space-y-6 text-gray-200">
-                                            <div className="border-b border-gray-700 pb-4">
-                                                <h3 className="text-lg font-semibold mb-2">Flight Route</h3>
+                                            {/* Trip Type Indicator */}
+                                            <div className="bg-gray-700 p-3 rounded-md mb-4">
+                                                <h2 className="text-xl font-semibold text-white">
+                                                    {flightDetailsData.tripType === "ROUNDTRIP" ? "Round Trip" : "One Way"}
+                                                </h2>
                                                 <p className="text-gray-300">
-                                                    {flightDetailsData.segments?.[0]?.departureAirport?.name} → {flightDetailsData.segments?.[0]?.arrivalAirport?.name}
+                                                    {flightDetailsData.segments?.[0]?.departureAirport?.cityName} ↔ {flightDetailsData.segments?.[0]?.arrivalAirport?.cityName}
                                                 </p>
                                             </div>
 
-                                            <div className="border-b border-gray-700 pb-4">
-                                                <h3 className="text-lg font-semibold mb-2">Timing</h3>
-                                                <div className="grid grid-cols-2 gap-4">
+                                            {/* OUTBOUND FLIGHT */}
+                                            <div className="border border-gray-700 rounded-lg p-4 bg-gray-800 shadow-md">
+                                                <div className="flex items-center mb-3">
+                                                    <div className="w-3 h-3 bg-blue-600 rounded-full mr-2"></div>
+                                                    <h2 className="text-xl font-semibold text-blue-300">Outbound Flight</h2>
+                                                </div>
+                                                
+                                                {/* Flight Route */}
+                                                <div className="mb-4">
+                                                    {flightDetailsData.segments?.[0]?.legs?.length === 1 ? (
+                                                        // Direct flight display
+                                                        <div className="flex justify-between items-center">
+                                                            <div className="text-center">
+                                                                <p className="text-xl font-bold">{flightDetailsData.segments?.[0]?.departureAirport?.code}</p>
+                                                                <p className="text-sm">{flightDetailsData.segments?.[0]?.departureAirport?.cityName}</p>
+                                                            </div>
+                                                            <div className="flex-1 px-4 text-center">
+                                                                <div className="relative">
+                                                                    <div className="border-t-2 border-gray-600 w-full absolute top-1/2"></div>
+                                                                    <div className="relative flex justify-center">
+                                                                        <div className="bg-gray-800 px-2 text-xs text-gray-400">
+                                                                            {flightDetailsData.segments?.[0]?.departureTime && flightDetailsData.segments?.[0]?.arrivalTime ? 
+                                                                                (() => {
+                                                                                    const durationMinutes = calculateDuration(
+                                                                                        flightDetailsData.segments[0].departureTime,
+                                                                                        flightDetailsData.segments[0].arrivalTime
+                                                                                    );
+                                                                                    const hours = Math.floor(durationMinutes / 60);
+                                                                                    const minutes = Math.round(durationMinutes % 60);
+                                                                                    return `${hours}h ${minutes}m`;
+                                                                                })() : "N/A"
+                                                                            }
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="absolute right-0 top-1/2 transform -translate-y-1/2">
+                                                                        <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                                                                            <path d="M13 5.5l7 7-7 7-1.4-1.4 4.6-4.6H4v-2h12.2l-4.6-4.6L13 5.5z"></path>
+                                                                        </svg>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-center">
+                                                                <p className="text-xl font-bold">{flightDetailsData.segments?.[0]?.arrivalAirport?.code}</p>
+                                                                <p className="text-sm">{flightDetailsData.segments?.[0]?.arrivalAirport?.cityName}</p>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        // Multi-stop flight display
+                                                        <div>
+                                                            <div className="flex items-center mb-2">
+                                                                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                                                                <span className="ml-1 text-xs font-medium text-yellow-400">
+                                                                    {flightDetailsData.segments?.[0]?.legs?.length - 1} {flightDetailsData.segments?.[0]?.legs?.length - 1 === 1 ? 'Stop' : 'Stops'}
+                                                                </span>
+                                                            </div>
+                                                            
+                                                            {/* Flight path visualization */}
+                                                            <div className="relative">
+                                                                {/* Timeline line */}
+                                                                <div className="absolute left-[15px] top-0 bottom-0 w-[2px] bg-gray-600"></div>
+                                                                
+                                                                {/* Iterate through all legs */}
+                                                                {flightDetailsData.segments?.[0]?.legs?.map((leg, index) => (
+                                                                    <div key={index} className="mb-6 relative">
+                                                                        {/* Departure */}
+                                                                        <div className="flex mb-3">
+                                                                            <div className="w-8 h-8 rounded-full bg-blue-900 flex items-center justify-center border-2 border-blue-500 z-10">
+                                                                                <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                                                                            </div>
+                                                                            <div className="ml-4">
+                                                                                <div className="flex items-baseline">
+                                                                                    <p className="text-lg font-bold">{leg.departureAirport?.code}</p>
+                                                                                    <p className="ml-2 text-sm text-gray-400">{leg.departureAirport?.cityName}</p>
+                                                                                </div>
+                                                                                <p className="text-sm text-gray-400">
+                                                                                    {leg.departureTime ? 
+                                                                                        new Date(leg.departureTime).toLocaleString('en-US', {
+                                                                                            hour: '2-digit',
+                                                                                            minute: '2-digit',
+                                                                                            month: 'short',
+                                                                                            day: 'numeric',
+                                                                                            year: 'numeric'
+                                                                                        }) : "N/A"}
+                                                                                </p>
+                                                                                <p className="text-xs text-gray-500">{leg.departureAirport?.name}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                        
+                                                                        {/* Flight details */}
+                                                                        <div className="flex ml-4 pl-4 mb-3">
+                                                                            <div className="flex-none">
+                                                                                {leg.carriersData && leg.carriersData[0] && (
+                                                                                    <img
+                                                                                        src={leg.carriersData[0].logo}
+                                                                                        alt={leg.carriersData[0].name}
+                                                                                        className="w-6 h-6 rounded-full object-contain"
+                                                                                    />
+                                                                                )}
+                                                                            </div>
+                                                                            <div className="ml-3">
+                                                                                <p className="text-xs font-medium">
+                                                                                    {leg.carriersData?.[0]?.name || "Unknown Airline"}
+                                                                                </p>
+                                                                                <p className="text-xs text-gray-400">
+                                                                                    Flight {leg.flightInfo?.flightNumber || "N/A"} • {leg.cabinClass || "Economy"}
+                                                                                </p>
+                                                                                <p className="text-xs text-gray-400">
+                                                                                    {leg.departureTime && leg.arrivalTime ? 
+                                                                                        (() => {
+                                                                                            const durationMinutes = calculateDuration(
+                                                                                                leg.departureTime,
+                                                                                                leg.arrivalTime
+                                                                                            );
+                                                                                            const hours = Math.floor(durationMinutes / 60);
+                                                                                            const minutes = Math.round(durationMinutes % 60);
+                                                                                            return `Duration: ${hours}h ${minutes}m`;
+                                                                                        })() : "Duration: N/A"
+                                                                                    }
+                                                                                </p>
+                                                                            </div>
+                                                                        </div>
+                                                                        
+                                                                        {/* Arrival */}
+                                                                        <div className="flex">
+                                                                            <div className="w-8 h-8 rounded-full bg-green-900 flex items-center justify-center border-2 border-green-500 z-10">
+                                                                                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                                                                            </div>
+                                                                            <div className="ml-4">
+                                                                                <div className="flex items-baseline">
+                                                                                    <p className="text-lg font-bold">{leg.arrivalAirport?.code}</p>
+                                                                                    <p className="ml-2 text-sm text-gray-400">{leg.arrivalAirport?.cityName}</p>
+                                                                                </div>
+                                                                                <p className="text-sm text-gray-400">
+                                                                                    {leg.arrivalTime ? 
+                                                                                        new Date(leg.arrivalTime).toLocaleString('en-US', {
+                                                                                            hour: '2-digit',
+                                                                                            minute: '2-digit',
+                                                                                            month: 'short',
+                                                                                            day: 'numeric',
+                                                                                            year: 'numeric'
+                                                                                        }) : "N/A"}
+                                                                                </p>
+                                                                                <p className="text-xs text-gray-500">{leg.arrivalAirport?.name}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                        
+                                                                        {/* Layover information (except for last leg) */}
+                                                                        {index < flightDetailsData.segments[0].legs.length - 1 && (
+                                                                            <div className="pl-4 ml-4 mt-2 mb-4 py-2 border-l-2 border-dashed border-gray-600">
+                                                                                <div className="bg-gray-700 p-2 rounded-md">
+                                                                                    <p className="text-sm text-orange-400 font-medium">Layover</p>
+                                                                                    <p className="text-xs text-gray-300">
+                                                                                        {leg.arrivalTime && flightDetailsData.segments[0].legs[index + 1]?.departureTime ? 
+                                                                                            (() => {
+                                                                                                const layoverMinutes = calculateDuration(
+                                                                                                    leg.arrivalTime,
+                                                                                                    flightDetailsData.segments[0].legs[index + 1].departureTime
+                                                                                                );
+                                                                                                const hours = Math.floor(layoverMinutes / 60);
+                                                                                                const minutes = Math.round(layoverMinutes % 60);
+                                                                                                return `${hours}h ${minutes}m in ${leg.arrivalAirport?.cityName} (${leg.arrivalAirport?.code})`;
+                                                                                            })() : "Duration unknown"
+                                                                                        }
+                                                                                    </p>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Flight Timing */}
+                                                <div className="grid grid-cols-2 gap-4 mb-4">
                                                     <div>
-                                                        <p className="font-medium">Departure</p>
-                                                        <p className="text-gray-300">
-                                                            {flightDetailsData.segments?.[0]?.departureTime || "N/A"}
+                                                        <p className="font-medium text-gray-400">Departure</p>
+                                                        <p className="text-white text-lg">
+                                                            {flightDetailsData.segments?.[0]?.departureTime ? 
+                                                                new Date(flightDetailsData.segments[0].departureTime).toLocaleString('en-US', {
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit'
+                                                                }) : "N/A"}
+                                                        </p>
+                                                        <p className="text-xs text-gray-400">
+                                                            {flightDetailsData.segments?.[0]?.departureTime ? 
+                                                                new Date(flightDetailsData.segments[0].departureTime).toLocaleString('en-US', {
+                                                                    weekday: 'short',
+                                                                    day: 'numeric',
+                                                                    month: 'short',
+                                                                    year: 'numeric'
+                                                                }) : ""}
                                                         </p>
                                                     </div>
                                                     <div>
-                                                        <p className="font-medium">Arrival</p>
-                                                        <p className="text-gray-300">
-                                                            {flightDetailsData.segments?.[0]?.arrivalTime || "N/A"}
+                                                        <p className="font-medium text-gray-400">Arrival</p>
+                                                        <p className="text-white text-lg">
+                                                            {flightDetailsData.segments?.[0]?.arrivalTime ? 
+                                                                new Date(flightDetailsData.segments[0].arrivalTime).toLocaleString('en-US', {
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit'
+                                                                }) : "N/A"}
                                                         </p>
+                                                        <p className="text-xs text-gray-400">
+                                                            {flightDetailsData.segments?.[0]?.arrivalTime ? 
+                                                                new Date(flightDetailsData.segments[0].arrivalTime).toLocaleString('en-US', {
+                                                                    weekday: 'short',
+                                                                    day: 'numeric',
+                                                                    month: 'short',
+                                                                    year: 'numeric'
+                                                                }) : ""}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Airline Information */}
+                                                <div className="mb-4">
+                                                    <h3 className="font-medium text-gray-400 mb-2">Airline</h3>
+                                                    {flightDetailsData.segments?.[0]?.legs?.[0]?.carriersData?.length > 0 && (
+                                                        <div className="flex items-center space-x-2">
+                                                            <img
+                                                                src={flightDetailsData.segments[0].legs[0].carriersData[0].logo}
+                                                                alt={`${flightDetailsData.segments[0].legs[0].carriersData[0].name} logo`}
+                                                                className="w-8 h-8 rounded-full"
+                                                            />
+                                                            <div>
+                                                                <p className="font-medium text-white">{flightDetailsData.segments[0].legs[0].carriersData[0].name}</p>
+                                                                <p className="text-xs text-gray-400">Flight {flightDetailsData.segments[0].legs[0].flightInfo?.flightNumber}</p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Luggage Information */}
+                                                <div className="mb-4 bg-gray-700 p-2 rounded">
+                                                    <h3 className="font-medium mb-1">Luggage</h3>
+                                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                                        <div>
+                                                            <p className="text-gray-400">Cabin Luggage</p>
+                                                            <p className="text-white">
+                                                                {flightDetailsData.segments?.[0]?.travellerCabinLuggage?.[0]?.luggageAllowance?.maxPiece || 0} piece(s),{" "}
+                                                                {flightDetailsData.segments?.[0]?.travellerCabinLuggage?.[0]?.luggageAllowance?.maxWeightPerPiece || 0}{" "}
+                                                                {flightDetailsData.segments?.[0]?.travellerCabinLuggage?.[0]?.luggageAllowance?.massUnit || ""}
+                                                            </p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-gray-400">Checked Luggage</p>
+                                                            <p className="text-white">
+                                                                {flightDetailsData.segments?.[0]?.travellerCheckedLuggage?.[0]?.luggageAllowance?.maxPiece || "Not included"}
+                                                            </p>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="border-b border-gray-700 pb-4">
-                                                <h3 className="text-lg font-semibold mb-2">Price</h3>
-                                                <p className="text-green-400 font-bold">
-                                                    RS. {flightDetailsData.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units * 280 || "N/A"}
-                                                    <span className="ml-1">PKR</span>
-                                                </p>
-                                            </div>
-
-                                            <div className="border-b border-gray-700 pb-4">
-                                                <h3 className="text-lg font-semibold mb-2">Luggage Information</h3>
-                                                {flightDetailsData.segments?.map((segment, segmentIndex) => (
-                                                    <div key={segmentIndex} className="mb-4">
-                                                        <p className="font-medium">Segment {segmentIndex + 1}</p>
-                                                        <div className="grid grid-cols-2 gap-4 mt-2">
-                                                            <div className="bg-gray-700 p-2 rounded">
-                                                                <p className="font-medium text-sm">Cabin Luggage</p>
-                                                                <p className="text-gray-300 text-sm">
-                                                                    {segment.travellerCabinLuggage?.[0]?.luggageAllowance?.maxPiece} piece(s),{" "}
-                                                                    {segment.travellerCabinLuggage?.[0]?.luggageAllowance?.maxWeightPerPiece}{" "}
-                                                                    {segment.travellerCabinLuggage?.[0]?.luggageAllowance?.massUnit}
-                                                                </p>
-                                                            </div>
-                                                            <div className="bg-gray-700 p-2 rounded">
-                                                                <p className="font-medium text-sm">Checked Luggage</p>
-                                                                <p className="text-gray-300 text-sm">
-                                                                   1 piece(s),{" "}
-                                                                    10 KG {" "}
-                                                                    
-                                                                </p>
-                                                            </div>
-                                                        </div>
+                                            {/* RETURN FLIGHT - Only show for round trips */}
+                                            {flightDetailsData.tripType === "ROUNDTRIP" && flightDetailsData.segments?.length > 1 && (
+                                                <div className="border border-gray-700 rounded-lg p-4 bg-gray-800 shadow-md">
+                                                    <div className="flex items-center mb-3">
+                                                        <div className="w-3 h-3 bg-green-600 rounded-full mr-2"></div>
+                                                        <h2 className="text-xl font-semibold text-green-300">Return Flight</h2>
                                                     </div>
-                                                ))}
-                                            </div>
-
-                                            <div className="border-b border-gray-700 pb-4">
-                                                <h3 className="text-lg font-semibold mb-2">Flight Stops</h3>
-                                                {flightDetailsData.segments?.[0]?.legs?.map((leg, index) => {
-                                                    const uniqueCarriers = leg.carriersData?.filter(
-                                                        (carrier, carrierIndex, self) =>
-                                                            self.findIndex((c) => c.name === carrier.name) === carrierIndex
-                                                    );
-
-                                                    return (
-                                                        <div key={index} className={`mb-4 ${index !== flightDetailsData.segments[0].legs.length - 1 ? 'border-b border-gray-600 pb-4' : ''}`}>
-                                                            <p className="font-medium">Leg {index + 1}</p>
-                                                            <p className="text-gray-300">
-                                                                {leg.departureAirport?.name} → {leg.arrivalAirport?.name}
-                                                            </p>
-                                                            <p className="text-gray-300">Departure: {leg.departureTime}</p>
-                                                            <p className="text-gray-300">Arrival: {leg.arrivalTime}</p>
-                                                            
-                                                            <div className="mt-2">
-                                                                <h4 className="text-md font-semibold">Airline:</h4>
-                                                                <div className="flex flex-wrap gap-4 mt-2">
-                                                                    {uniqueCarriers?.map((carrier, carrierIndex) => (
-                                                                        <div key={carrierIndex} className="flex items-center space-x-2 bg-gray-700 p-2 rounded">
-                                                                            <img
-                                                                                src={carrier.logo}
-                                                                                alt={`${carrier.name} logo`}
-                                                                                className="w-8 h-8 rounded-full"
-                                                                            />
-                                                                            <p className="text-gray-300 text-sm">{carrier.name}</p>
+                                                    
+                                                    {/* Flight Route - similar structure to outbound flight */}
+                                                    <div className="mb-4">
+                                                        {flightDetailsData.segments?.[1]?.legs?.length === 1 ? (
+                                                            // Direct flight display
+                                                            <div className="flex justify-between items-center">
+                                                                <div className="text-center">
+                                                                    <p className="text-xl fontbold">{flightDetailsData.segments?.[1]?.departureAirport?.code}</p>
+                                                                    <p className="text-sm">{flightDetailsData.segments?.[1]?.departureAirport?.cityName}</p>
+                                                                </div>
+                                                                <div className="flex-1 px-4 text-center">
+                                                                    <div className="relative">
+                                                                        <div className="border-t-2 border-gray-600 w-full absolute top-1/2"></div>
+                                                                        <div className="relative flex justify-center">
+                                                                            <div className="bg-gray-800 px-2 text-xs text-gray-400">
+                                                                                {flightDetailsData.segments?.[1]?.departureTime && flightDetailsData.segments?.[1]?.arrivalTime ? 
+                                                                                    (() => {
+                                                                                        const durationMinutes = calculateDuration(
+                                                                                            flightDetailsData.segments[1].departureTime,
+                                                                                            flightDetailsData.segments[1].arrivalTime
+                                                                                        );
+                                                                                        const hours = Math.floor(durationMinutes / 60);
+                                                                                        const minutes = Math.round(durationMinutes % 60);
+                                                                                        return `${hours}h ${minutes}m`;
+                                                                                    })() : "N/A"
+                                                                                }
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="absolute right-0 top-1/2 transform -translate-y-1/2">
+                                                                            <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                                                                                <path d="M13 5.5l7 7-7 7-1.4-1.4 4.6-4.6H4v-2h12.2l-4.6-4.6L13 5.5z"></path>
+                                                                        </svg>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="text-center">
+                                                                    <p className="text-xl font-bold">{flightDetailsData.segments?.[1]?.arrivalAirport?.code}</p>
+                                                                    <p className="text-sm">{flightDetailsData.segments?.[1]?.arrivalAirport?.cityName}</p>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            // Multi-stop return flight display (similar to outbound)
+                                                            <div>
+                                                                <div className="flex items-center mb-2">
+                                                                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                                                                    <span className="ml-1 text-xs font-medium text-yellow-400">
+                                                                        {flightDetailsData.segments?.[1]?.legs?.length - 1} {flightDetailsData.segments?.[1]?.legs?.length - 1 === 1 ? 'Stop' : 'Stops'}
+                                                                    </span>
+                                                                </div>
+                                                                
+                                                                {/* Return flight path visualization - similar to outbound */}
+                                                                <div className="relative">
+                                                                    {/* Timeline line */}
+                                                                    <div className="absolute left-[15px] top-0 bottom-0 w-[2px] bg-gray-600"></div>
+                                                                    
+                                                                    {/* Return legs */}
+                                                                    {flightDetailsData.segments?.[1]?.legs?.map((leg, index) => (
+                                                                        // Similar structure to outbound legs
+                                                                        <div key={index} className="mb-6 relative">
+                                                                            {/* Similar structure to outbound departure */}
+                                                                            <div className="flex mb-3">
+                                                                                <div className="w-8 h-8 rounded-full bg-blue-900 flex items-center justify-center border-2 border-blue-500 z-10">
+                                                                                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                                                                                </div>
+                                                                                <div className="ml-4">
+                                                                                    <div className="flex items-baseline">
+                                                                                        <p className="text-lg font-bold">{leg.departureAirport?.code}</p>
+                                                                                        <p className="ml-2 text-sm text-gray-400">{leg.departureAirport?.cityName}</p>
+                                                                                    </div>
+                                                                                    <p className="text-sm text-gray-400">
+                                                                                        {leg.departureTime ? 
+                                                                                            new Date(leg.departureTime).toLocaleString('en-US', {
+                                                                                                hour: '2-digit',
+                                                                                                minute: '2-digit',
+                                                                                                month: 'short',
+                                                                                                day: 'numeric',
+                                                                                                year: 'numeric'
+                                                                                            }) : "N/A"}
+                                                                                    </p>
+                                                                                    <p className="text-xs text-gray-500">{leg.departureAirport?.name}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                            
+                                                                            {/* Flight details - similar to outbound */}
+                                                                            <div className="flex ml-4 pl-4 mb-3">
+                                                                                <div className="flex-none">
+                                                                                    {leg.carriersData && leg.carriersData[0] && (
+                                                                                        <img
+                                                                                            src={leg.carriersData[0].logo}
+                                                                                            alt={leg.carriersData[0].name}
+                                                                                            className="w-6 h-6 rounded-full object-contain"
+                                                                                        />
+                                                                                    )}
+                                                                                </div>
+                                                                                <div className="ml-3">
+                                                                                    <p className="text-xs font-medium">
+                                                                                        {leg.carriersData?.[0]?.name || "Unknown Airline"}
+                                                                                    </p>
+                                                                                    <p className="text-xs text-gray-400">
+                                                                                        Flight {leg.flightInfo?.flightNumber || "N/A"} • {leg.cabinClass || "Economy"}
+                                                                                    </p>
+                                                                                    <p className="text-xs text-gray-400">
+                                                                                        {leg.departureTime && leg.arrivalTime ? 
+                                                                                            (() => {
+                                                                                                const durationMinutes = calculateDuration(
+                                                                                                    leg.departureTime,
+                                                                                                    leg.arrivalTime
+                                                                                                );
+                                                                                                const hours = Math.floor(durationMinutes / 60);
+                                                                                                const minutes = Math.round(durationMinutes % 60);
+                                                                                                return `Duration: ${hours}h ${minutes}m`;
+                                                                                            })() : "Duration: N/A"
+                                                                                        }
+                                                                                    </p>
+                                                                                </div>
+                                                                            </div>
+                                                                            
+                                                                            {/* Arrival - similar to outbound */}
+                                                                            <div className="flex">
+                                                                                <div className="w-8 h-8 rounded-full bg-green-900 flex items-center justify-center border-2 border-green-500 z-10">
+                                                                                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                                                                                </div>
+                                                                                <div className="ml-4">
+                                                                                    <div className="flex items-baseline">
+                                                                                        <p className="text-lg font-bold">{leg.arrivalAirport?.code}</p>
+                                                                                        <p className="ml-2 text-sm text-gray-400">{leg.arrivalAirport?.cityName}</p>
+                                                                                    </div>
+                                                                                    <p className="text-sm text-gray-400">
+                                                                                        {leg.arrivalTime ? 
+                                                                                            new Date(leg.arrivalTime).toLocaleString('en-US', {
+                                                                                                hour: '2-digit',
+                                                                                                minute: '2-digit',
+                                                                                                month: 'short',
+                                                                                                day: 'numeric',
+                                                                                                year: 'numeric'
+                                                                                            }) : "N/A"}
+                                                                                    </p>
+                                                                                    <p className="text-xs text-gray-500">{leg.arrivalAirport?.name}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                            
+                                                                            {/* Layover information for return flight */}
+                                                                            {index < flightDetailsData.segments[1].legs.length - 1 && (
+                                                                                <div className="pl-4 ml-4 mt-2 mb-4 py-2 border-l-2 border-dashed border-gray-600">
+                                                                                    <div className="bg-gray-700 p-2 rounded-md">
+                                                                                        <p className="text-sm text-orange-400 font-medium">Layover</p>
+                                                                                        <p className="text-xs text-gray-300">
+                                                                                            {leg.arrivalTime && flightDetailsData.segments[1].legs[index + 1]?.departureTime ? 
+                                                                                                (() => {
+                                                                                                    const layoverMinutes = calculateDuration(
+                                                                                                        leg.arrivalTime,
+                                                                                                        flightDetailsData.segments[1].legs[index + 1].departureTime
+                                                                                                    );
+                                                                                                    const hours = Math.floor(layoverMinutes / 60);
+                                                                                                    const minutes = Math.round(layoverMinutes % 60);
+                                                                                                    return `${hours}h ${minutes}m in ${leg.arrivalAirport?.cityName} (${leg.arrivalAirport?.code})`;
+                                                                                                })() : "Duration unknown"
+                                                                                            }
+                                                                                        </p>
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
                                                                         </div>
                                                                     ))}
                                                                 </div>
                                                             </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Flight Timing - similar to outbound flight */}
+                                                    <div className="grid grid-cols-2 gap-4 mb-4">
+                                                        <div>
+                                                            <p className="font-medium text-gray-400">Departure</p>
+                                                            <p className="text-white text-lg">
+                                                                {flightDetailsData.segments?.[1]?.departureTime ? 
+                                                                    new Date(flightDetailsData.segments[1].departureTime).toLocaleString('en-US', {
+                                                                        hour: '2-digit',
+                                                                        minute: '2-digit'
+                                                                    }) : "N/A"}
+                                                            </p>
+                                                            <p className="text-xs text-gray-400">
+                                                                {flightDetailsData.segments?.[1]?.departureTime ? 
+                                                                    new Date(flightDetailsData.segments[1].departureTime).toLocaleString('en-US', {
+                                                                        weekday: 'short',
+                                                                        day: 'numeric',
+                                                                        month: 'short',
+                                                                        year: 'numeric'
+                                                                    }) : ""}
+                                                            </p>
                                                         </div>
-                                                    );
-                                                })}
+                                                        <div>
+                                                            <p className="font-medium text-gray-400">Arrival</p>
+                                                            <p className="text-white text-lg">
+                                                                {flightDetailsData.segments?.[1]?.arrivalTime ? 
+                                                                    new Date(flightDetailsData.segments[1].arrivalTime).toLocaleString('en-US', {
+                                                                        hour: '2-digit',
+                                                                        minute: '2-digit'
+                                                                    }) : "N/A"}
+                                                            </p>
+                                                            <p className="text-xs text-gray-400">
+                                                                {flightDetailsData.segments?.[1]?.arrivalTime ? 
+                                                                    new Date(flightDetailsData.segments[1].arrivalTime).toLocaleString('en-US', {
+                                                                        weekday: 'short',
+                                                                        day: 'numeric',
+                                                                        month: 'short',
+                                                                        year: 'numeric'
+                                                                    }) : ""}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Return Airline Information */}
+                                                    <div className="mb-4">
+                                                        <h3 className="font-medium text-gray-400 mb-2">Airline</h3>
+                                                        {flightDetailsData.segments?.[1]?.legs?.[0]?.carriersData?.length > 0 && (
+                                                            <div className="flex items-center space-x-2">
+                                                                <img
+                                                                    src={flightDetailsData.segments[1].legs[0].carriersData[0].logo}
+                                                                    alt={`${flightDetailsData.segments[1].legs[0].carriersData[0].name} logo`}
+                                                                    className="w-8 h-8 rounded-full"
+                                                                />
+                                                                <div>
+                                                                    <p className="font-medium text-white">{flightDetailsData.segments[1].legs[0].carriersData[0].name}</p>
+                                                                    <p className="text-xs text-gray-400">Flight {flightDetailsData.segments[1].legs[0].flightInfo?.flightNumber}</p>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Return Luggage Information */}
+                                                    <div className="mb-4 bg-gray-700 p-2 rounded">
+                                                        <h3 className="font-medium mb-1">Luggage</h3>
+                                                        <div className="grid grid-cols-2 gap-2 text-sm">
+                                                            <div>
+                                                                <p className="text-gray-400">Cabin Luggage</p>
+                                                                <p className="text-white">
+                                                                    {flightDetailsData.segments?.[1]?.travellerCabinLuggage?.[0]?.luggageAllowance?.maxPiece || 0} piece(s),{" "}
+                                                                    {flightDetailsData.segments?.[1]?.travellerCabinLuggage?.[0]?.luggageAllowance?.maxWeightPerPiece || 0}{" "}
+                                                                    {flightDetailsData.segments?.[1]?.travellerCabinLuggage?.[0]?.luggageAllowance?.massUnit || ""}
+                                                                </p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-gray-400">Checked Luggage</p>
+                                                                <p className="text-white">
+                                                                    {flightDetailsData.segments?.[1]?.travellerCheckedLuggage?.[0]?.luggageAllowance?.maxPiece || "Not included"}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Price */}
+                                            <div className="border-b border-gray-700 pb-4">
+                                                <h2 className="text-xl font-semibold mb-2 text-gray-200">Price</h2>
+                                                <p className="text-green-400 font-bold text-xl">
+                                                    RS. {Math.floor(flightDetailsData.travellerPrices?.[0]?.travellerPriceBreakdown?.totalWithoutDiscountRounded?.units * USD_TO_PKR_RATE)} PKR
+                                                </p>
                                             </div>
 
+                                            {/* Additional Information */}
                                             <div className="border-b border-gray-700 pb-4">
-                                                <h3 className="text-lg font-semibold mb-2">Additional Information</h3>
+                                                <h2 className="text-xl font-semibold mb-2 text-gray-200">Additional Information</h2>
                                                 <div className="grid grid-cols-2 gap-4">
-                                                    <div className="bg-gray-700 p-2 rounded">
-                                                        <p className="font-medium text-sm">Cabin Class</p>
-                                                        <p className="text-gray-300 text-sm">{flightDetailsData.segments?.[0]?.cabinClass || "N/A"}</p>
+                                                    <div>
+                                                        <p className="font-medium text-gray-400">Cabin Class</p>
+                                                        <p className="text-white">{flightDetailsData.segments?.[0]?.legs?.[0]?.cabinClass || "N/A"}</p>
                                                     </div>
-                                                    <div className="bg-gray-700 p-2 rounded">
-                                                        <p className="font-medium text-sm">Trip Type</p>
-                                                        <p className="text-gray-300 text-sm">{flightDetailsData.tripType || "N/A"}</p>
+                                                    <div>
+                                                        <p className="font-medium text-gray-400">Trip Type</p>
+                                                        <p className="text-white">{flightDetailsData.tripType || "N/A"}</p>
                                                     </div>
                                                 </div>
                                             </div>
 
+                                            {/* Select Flight Button */}
                                             <div className="pt-4">
                                                 <button
                                                     onClick={() => {
@@ -1260,7 +1761,7 @@ const TripDetails = ({ searchResults, onFlightSelect, onHotelSelect}) => {
                                         </div>
                                     ) : (
                                         <div className="text-center text-gray-400">
-                                            No flight details available.
+                                            <p>No flight details available.</p>
                                         </div>
                                     )}
                                 </div>
