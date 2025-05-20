@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
 // Define USD to PKR conversion rate
 const USD_TO_PKR_RATE = 280;
@@ -99,8 +97,6 @@ const HotelInvoicePDF = ({ bookingDetails, transactionId, paymentMethod }) => {
   // Simplified approach without fetching name
   const [nameLoaded, setNameLoaded] = useState(true); // Always true since we're not fetching
   
-  // Console log the name we're getting directly from the props
-  console.log("HotelInvoicePDF - Customer name received:", bookingDetails?.customerName);
   
   const formatDate = (dateString) => {
     try {

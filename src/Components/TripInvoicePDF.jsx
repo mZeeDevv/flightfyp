@@ -129,10 +129,32 @@ const styles = StyleSheet.create({
     marginTop: 5,
     marginBottom: 5,
   },
+  
+  // Add new styles for flight sections
+  outboundSection: {
+    borderLeft: '3 solid #3b82f6',
+    paddingLeft: 10,
+    marginBottom: 10,
+  },
+  returnSection: {
+    borderLeft: '3 solid #10b981',
+    paddingLeft: 10,
+  },
+  flightTypeLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#4b5563',
+    marginBottom: 5,
+  },
+  flightSeparator: {
+    borderStyle: 'dashed',
+    borderBottom: '1 dashed #e5e7eb',
+    marginVertical: 5,
+  },
 });
 
 // Create Document Component
-const TripInvoicePDF = ({ tripDetails, transactionId, paymentMethod, userData, totalAmount }) => {
+const TripInvoicePDF = ({ tripDetails, transactionId, paymentMethod, userData, totalAmount, searchResults }) => {
   const formatDate = (dateString) => {
     try {
       const date = new Date(dateString);
@@ -140,6 +162,23 @@ const TripInvoicePDF = ({ tripDetails, transactionId, paymentMethod, userData, t
         year: 'numeric',
         month: 'long',
         day: 'numeric',
+      });
+    } catch (e) {
+      return dateString || 'N/A';
+    }
+  };
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return 'N/A';
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
       });
     } catch (e) {
       return dateString || 'N/A';
@@ -155,20 +194,182 @@ const TripInvoicePDF = ({ tripDetails, transactionId, paymentMethod, userData, t
   // Hotel amenities (if available)
   const hotelAmenities = tripDetails.hotel?.amenities || [];
   
-  // Properly detect if this is a round trip flight by checking multiple indicators
-  const isRoundTrip = tripDetails.flight?.isRoundTrip || 
-                     (tripDetails.flight?.returnDepartureTime && tripDetails.flight?.returnArrivalTime) ||
-                     (tripDetails.flight?.returnDeparture && tripDetails.flight?.returnArrival) ||
-                     (tripDetails.flight?.tripType === "ROUNDTRIP");
+  // Enhanced round trip detection that properly respects trip type
+const isRoundTrip = (() => {
+  // First, check explicit trip type indicators
+  if (tripDetails.flight?.tripType === "ONE_WAY" || tripDetails.flight?.tripType === "ONEWAY") {
+    console.log("Trip PDF - Explicitly marked as ONE_WAY");
+    return false;
+  }
+  
+  if (tripDetails.flight?.tripType === "ROUNDTRIP" || searchResults?.tripType === "RETURN") {
+    console.log("Trip PDF - Explicitly marked as ROUNDTRIP/RETURN");
+    return true;
+  }
+  
+  // If no explicit type is set, check if return flight data exists
+  const hasReturnFlightData = 
+    (tripDetails.flight?.returnDepartureTime && tripDetails.flight?.returnArrivalTime) ||
+    (tripDetails.flight?.returnDeparture && tripDetails.flight?.returnArrival) ||
+    (tripDetails.flight?.segments && tripDetails.flight.segments.length > 1);
+    
+  console.log("Trip PDF - Return flight data exists:", hasReturnFlightData);
+  return Boolean(tripDetails.flight?.isRoundTrip || hasReturnFlightData);
+})();
 
-  // Debug log to see what round trip indicators are available
-  console.log("Trip PDF - Round Trip indicators:", {
+  console.log("Trip PDF - Round Trip Detection:", { 
     isRoundTripFlag: tripDetails.flight?.isRoundTrip,
+    tripType: tripDetails.flight?.tripType,
+    searchResultsTripType: searchResults?.tripType,
     hasReturnTimes: !!(tripDetails.flight?.returnDepartureTime && tripDetails.flight?.returnArrivalTime),
     hasReturnLocations: !!(tripDetails.flight?.returnDeparture && tripDetails.flight?.returnArrival),
-    tripType: tripDetails.flight?.tripType,
-    isDetectedAsRoundTrip: isRoundTrip
+    hasMultipleSegments: !!(tripDetails.flight?.segments && tripDetails.flight.segments.length > 1),
+    isDetectedAsRoundTrip: isRoundTrip,
+    explicitlyOneWay: tripDetails.flight?.tripType === "ONE_WAY" || tripDetails.flight?.tripType === "ONEWAY"
   });
+
+  const formatCurrency = (amount) => {
+    return `RS. ${Math.floor(amount * 280)}`;
+  };
+
+  // Calculate flight duration if times are available
+  const calculateDuration = (departureTime, arrivalTime) => {
+    if (!departureTime || !arrivalTime) return 'N/A';
+    
+    try {
+      const depTime = new Date(departureTime).getTime();
+      const arrTime = new Date(arrivalTime).getTime();
+      const durationMinutes = (arrTime - depTime) / (1000 * 60);
+      const hours = Math.floor(durationMinutes / 60);
+      const minutes = Math.round(durationMinutes % 60);
+      return `${hours}h ${minutes}m`;
+    } catch(e) {
+      return 'N/A';
+    }
+  };
+
+  // Extract return trip data from segments if available
+  const getReturnTripData = () => {
+    // First try to get data from segments array
+    if (tripDetails.flight?.segments && tripDetails.flight.segments.length > 1) {
+      console.log("Found return segment data:", tripDetails.flight.segments[1]);
+      return {
+        departure: tripDetails.flight.segments[1]?.departureAirport?.name || 
+                  tripDetails.flight.segments[1]?.departureAirport?.cityName || 
+                  tripDetails.flight.returnDeparture || 
+                  tripDetails.flight.arrival ||
+                  searchResults?.to, // Fallback to search params
+        arrival: tripDetails.flight.segments[1]?.arrivalAirport?.name || 
+                tripDetails.flight.segments[1]?.arrivalAirport?.cityName || 
+                tripDetails.flight.returnArrival || 
+                tripDetails.flight.departure ||
+                searchResults?.from, // Fallback to search params
+        departureTime: tripDetails.flight.segments[1]?.departureTime || 
+                      tripDetails.flight.returnDepartureTime || 
+                      "Date not available",
+        arrivalTime: tripDetails.flight.segments[1]?.arrivalTime || 
+                    tripDetails.flight.returnArrivalTime ||
+                    "Date not available",
+        departureCode: tripDetails.flight.segments[1]?.departureAirport?.code,
+        arrivalCode: tripDetails.flight.segments[1]?.arrivalAirport?.code,
+        flightNumber: tripDetails.flight.segments[1]?.legs?.[0]?.flightNumber || 
+                     tripDetails.flight.segments[1]?.legs?.[0]?.flightInfo?.flightNumber || 
+                     tripDetails.flight.returnFlightNumber || 
+                     tripDetails.flight.flightNumber || 
+                     "N/A",
+        airline: tripDetails.flight.segments[1]?.legs?.[0]?.carriersData?.[0]?.name ||
+                tripDetails.flight.returnAirline ||
+                tripDetails.flight.airline || 
+                "N/A",
+        cabinClass: tripDetails.flight.segments[1]?.legs?.[0]?.cabinClass || 
+                   tripDetails.flight.segments[0]?.legs?.[0]?.cabinClass || 
+                   tripDetails.flight.cabinClass ||
+                   searchResults?.cabinClass ||
+                   'Economy'
+      };
+    }
+    
+    // If no segments, try return-specific properties
+    if (tripDetails.flight?.returnDeparture || tripDetails.flight?.returnDepartureTime) {
+      console.log("Found return specific properties");
+      return {
+        departure: tripDetails.flight.returnDeparture || tripDetails.flight.arrival || searchResults?.to,
+        arrival: tripDetails.flight.returnArrival || tripDetails.flight.departure || searchResults?.from,
+        departureTime: tripDetails.flight.returnDepartureTime || "Date not available",
+        arrivalTime: tripDetails.flight.returnArrivalTime || "Date not available",
+        departureCode: tripDetails.flight.returnDepartureCode,
+        arrivalCode: tripDetails.flight.returnArrivalCode,
+        flightNumber: tripDetails.flight.returnFlightNumber || tripDetails.flight.flightNumber || "N/A",
+        airline: tripDetails.flight.returnAirline || tripDetails.flight.airline || "N/A",
+        cabinClass: tripDetails.flight.returnCabinClass || tripDetails.flight.cabinClass || 
+                   searchResults?.cabinClass || 'Economy'
+      };
+    }
+    
+    // If searchResults indicates RETURN trip, create basic return info by swapping from/to
+    if (searchResults?.tripType === "RETURN") {
+      console.log("Creating return data from search parameters");
+      return {
+        departure: searchResults.to || tripDetails.flight?.arrival,
+        arrival: searchResults.from || tripDetails.flight?.departure,
+        departureTime: searchResults.returnDate ? `${searchResults.returnDate} (estimated)` : "Date not available",
+        arrivalTime: "Date not available",
+        departureCode: "",
+        arrivalCode: "",
+        flightNumber: tripDetails.flight?.flightNumber || "N/A",
+        airline: tripDetails.flight?.airline || "N/A",
+        cabinClass: searchResults.cabinClass || tripDetails.flight?.cabinClass || 'Economy'
+      };
+    }
+    
+    // Last resort, swap outbound data
+    console.log("Falling back to swapped outbound data");
+    return {
+      departure: tripDetails.flight?.arrival || searchResults?.to || "N/A",
+      arrival: tripDetails.flight?.departure || searchResults?.from || "N/A",
+      departureTime: searchResults?.returnDate ? `${searchResults.returnDate} (estimated)` : "Date not available",
+      arrivalTime: "Date not available",
+      flightNumber: tripDetails.flight?.flightNumber || "N/A",
+      airline: tripDetails.flight?.airline || "N/A",
+      cabinClass: tripDetails.flight?.cabinClass || searchResults?.cabinClass || 'Economy'
+    };
+  };
+
+  // Extract outbound trip data
+  const getOutboundTripData = () => {
+    return {
+      departure: tripDetails.flight?.segments?.[0]?.departureAirport?.name || 
+                tripDetails.flight?.segments?.[0]?.departureAirport?.cityName || 
+                tripDetails.flight?.departure || 
+                searchResults?.from ||
+                "N/A",
+      arrival: tripDetails.flight?.segments?.[0]?.arrivalAirport?.name || 
+              tripDetails.flight?.segments?.[0]?.arrivalAirport?.cityName || 
+              tripDetails.flight?.arrival || 
+              searchResults?.to ||
+              "N/A",
+      departureTime: tripDetails.flight?.segments?.[0]?.departureTime || 
+                    tripDetails.flight?.departureTime ||
+                    searchResults?.departureDate ? `${searchResults.departureDate} (estimated)` : "Date not available",
+      arrivalTime: tripDetails.flight?.segments?.[0]?.arrivalTime || 
+                  tripDetails.flight?.arrivalTime ||
+                  "Date not available",
+      departureCode: tripDetails.flight?.segments?.[0]?.departureAirport?.code,
+      arrivalCode: tripDetails.flight?.segments?.[0]?.arrivalAirport?.code,
+      flightNumber: tripDetails.flight?.segments?.[0]?.legs?.[0]?.flightNumber || 
+                   tripDetails.flight?.segments?.[0]?.legs?.[0]?.flightInfo?.flightNumber || 
+                   tripDetails.flight?.flightNumber || "N/A",
+      airline: tripDetails.flight?.segments?.[0]?.legs?.[0]?.carriersData?.[0]?.name || 
+              tripDetails.flight?.airline || "N/A",
+      cabinClass: tripDetails.flight?.segments?.[0]?.legs?.[0]?.cabinClass || 
+                 tripDetails.flight?.cabinClass || 
+                 searchResults?.cabinClass || 
+                 'Economy'
+    };
+  };
+
+  const outboundData = getOutboundTripData();
+  const returnData = isRoundTrip ? getReturnTripData() : null;
   
   return (
     <Document>
@@ -200,122 +401,145 @@ const TripInvoicePDF = ({ tripDetails, transactionId, paymentMethod, userData, t
           </View>
         </View>
 
-        {/* Flight Details */}
+        {/* Flight Details - Enhanced for Round Trips */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Flight Details</Text>
           
-          {/* Check if it's a round trip using our more robust detection */}
-          {isRoundTrip ? (
+          {/* Trip Type Indicator */}
+          <View style={styles.row}>
+            <View style={styles.column}>
+              <Text style={styles.label}>Trip Type:</Text>
+              <Text style={styles.value}>{isRoundTrip ? "Round Trip" : "One Way"}</Text>
+            </View>
+            <View style={styles.column}>
+              <Text style={styles.label}>Flight Price:</Text>
+              <Text style={styles.value}>{formatCurrency(tripDetails.flight?.amount)}</Text>
+            </View>
+          </View>
+          
+          {/* Divider */}
+          <View style={{borderBottom: '1 solid #e5e7eb', marginVertical: 8}} />
+          
+          {/* Outbound Flight */}
+          <View style={styles.outboundSection}>
+            <Text style={[styles.flightTypeLabel, {color: '#3b82f6'}]}>
+              OUTBOUND FLIGHT
+            </Text>
+            
+            <View style={styles.row}>
+              <View style={styles.column}>
+                <Text style={styles.label}>From:</Text>
+                <Text style={styles.value}>
+                  {outboundData.departure}
+                  {outboundData.departureCode && ` (${outboundData.departureCode})`}
+                </Text>
+              </View>
+              <View style={styles.column}>
+                <Text style={styles.label}>To:</Text>
+                <Text style={styles.value}>
+                  {outboundData.arrival}
+                  {outboundData.arrivalCode && ` (${outboundData.arrivalCode})`}
+                </Text>
+              </View>
+            </View>
+            
+            <View style={styles.row}>
+              <View style={styles.column}>
+                <Text style={styles.label}>Departure:</Text>
+                <Text style={styles.value}>{formatDateTime(outboundData.departureTime)}</Text>
+              </View>
+              <View style={styles.column}>
+                <Text style={styles.label}>Arrival:</Text>
+                <Text style={styles.value}>{formatDateTime(outboundData.arrivalTime)}</Text>
+              </View>
+            </View>
+            
+            <View style={styles.row}>
+              <View style={styles.column}>
+                <Text style={styles.label}>Flight Number:</Text>
+                <Text style={styles.value}>{outboundData.flightNumber}</Text>
+              </View>
+              <View style={styles.column}>
+                <Text style={styles.label}>Duration:</Text>
+                <Text style={styles.value}>
+                  {calculateDuration(outboundData.departureTime, outboundData.arrivalTime)}
+                </Text>
+              </View>
+            </View>
+            
+            <View style={styles.row}>
+              <View style={styles.column}>
+                <Text style={styles.label}>Airline:</Text>
+                <Text style={styles.value}>{outboundData.airline}</Text>
+              </View>
+              <View style={styles.column}>
+                <Text style={styles.label}>Cabin Class:</Text>
+                <Text style={styles.value}>{outboundData.cabinClass}</Text>
+              </View>
+            </View>
+          </View>
+          
+          {/* Return Flight - Only for round trips */}
+          {isRoundTrip && returnData && (
             <>
-              {/* Outbound Flight */}
-              <View style={{marginBottom: 10}}>
-                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 5}}>
-                  <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: '#3b82f6', marginRight: 5}} />
-                  <Text style={{fontSize: 14, fontWeight: 'bold', color: '#3b82f6'}}>Outbound Flight</Text>
-                </View>
+              {/* Divider between flights */}
+              <View style={styles.flightSeparator} />
+              
+              <View style={styles.returnSection}>
+                <Text style={[styles.flightTypeLabel, {color: '#10b981'}]}>
+                  RETURN FLIGHT
+                </Text>
                 
                 <View style={styles.row}>
                   <View style={styles.column}>
                     <Text style={styles.label}>From:</Text>
-                    <Text style={styles.value}>{tripDetails.flight?.departure || 'N/A'}</Text>
+                    <Text style={styles.value}>
+                      {returnData.departure}
+                      {returnData.departureCode && ` (${returnData.departureCode})`}
+                    </Text>
                   </View>
                   <View style={styles.column}>
                     <Text style={styles.label}>To:</Text>
-                    <Text style={styles.value}>{tripDetails.flight?.arrival || 'N/A'}</Text>
+                    <Text style={styles.value}>
+                      {returnData.arrival}
+                      {returnData.arrivalCode && ` (${returnData.arrivalCode})`}
+                    </Text>
                   </View>
-                </View>
-                <View style={styles.row}>
-                  <View style={styles.column}>
-                    <Text style={styles.label}>Departure Time:</Text>
-                    <Text style={styles.value}>{tripDetails.flight?.departureTime || 'N/A'}</Text>
-                  </View>
-                  <View style={styles.column}>
-                    <Text style={styles.label}>Arrival Time:</Text>
-                    <Text style={styles.value}>{tripDetails.flight?.arrivalTime || 'N/A'}</Text>
-                  </View>
-                </View>
-                <View style={styles.row}>
-                  <View style={styles.column}>
-                    <Text style={styles.label}>Flight Number:</Text>
-                    <Text style={styles.value}>{tripDetails.flight?.flightNumber || 'N/A'}</Text>
-                  </View>
-                </View>
-              </View>
-              
-              {/* Return Flight */}
-              <View>
-                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 5, marginTop: 10}}>
-                  <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: '#10b981', marginRight: 5}} />
-                  <Text style={{fontSize: 14, fontWeight: 'bold', color: '#10b981'}}>Return Flight</Text>
                 </View>
                 
                 <View style={styles.row}>
                   <View style={styles.column}>
-                    <Text style={styles.label}>From:</Text>
-                    <Text style={styles.value}>{tripDetails.flight?.returnDeparture || tripDetails.flight?.arrival || 'N/A'}</Text>
+                    <Text style={styles.label}>Departure:</Text>
+                    <Text style={styles.value}>{formatDateTime(returnData.departureTime)}</Text>
                   </View>
                   <View style={styles.column}>
-                    <Text style={styles.label}>To:</Text>
-                    <Text style={styles.value}>{tripDetails.flight?.returnArrival || tripDetails.flight?.departure || 'N/A'}</Text>
+                    <Text style={styles.label}>Arrival:</Text>
+                    <Text style={styles.value}>{formatDateTime(returnData.arrivalTime)}</Text>
                   </View>
                 </View>
-                <View style={styles.row}>
-                  <View style={styles.column}>
-                    <Text style={styles.label}>Departure Time:</Text>
-                    <Text style={styles.value}>{tripDetails.flight?.returnDepartureTime || 'N/A'}</Text>
-                  </View>
-                  <View style={styles.column}>
-                    <Text style={styles.label}>Arrival Time:</Text>
-                    <Text style={styles.value}>{tripDetails.flight?.returnArrivalTime || 'N/A'}</Text>
-                  </View>
-                </View>
+                
                 <View style={styles.row}>
                   <View style={styles.column}>
                     <Text style={styles.label}>Flight Number:</Text>
-                    <Text style={styles.value}>{tripDetails.flight?.returnFlightNumber || tripDetails.flight?.flightNumber || 'N/A'}</Text>
+                    <Text style={styles.value}>{returnData.flightNumber}</Text>
+                  </View>
+                  <View style={styles.column}>
+                    <Text style={styles.label}>Duration:</Text>
+                    <Text style={styles.value}>
+                      {calculateDuration(returnData.departureTime, returnData.arrivalTime)}
+                    </Text>
                   </View>
                 </View>
-              </View>
-              
-              {/* Common flight price */}
-              <View style={styles.row}>
-                <View style={styles.column}>
-                  <Text style={styles.label}>Flight Price (Total):</Text>
-                  <Text style={styles.value}>RS. {Math.floor((tripDetails.flight?.amount || 0) * 280)}</Text>
-                </View>
-              </View>
-            </>
-          ) : (
-            // One-way flight
-            <>
-              <View style={styles.row}>
-                <View style={styles.column}>
-                  <Text style={styles.label}>From:</Text>
-                  <Text style={styles.value}>{tripDetails.flight?.departure || 'N/A'}</Text>
-                </View>
-                <View style={styles.column}>
-                  <Text style={styles.label}>To:</Text>
-                  <Text style={styles.value}>{tripDetails.flight?.arrival || 'N/A'}</Text>
-                </View>
-              </View>
-              <View style={styles.row}>
-                <View style={styles.column}>
-                  <Text style={styles.label}>Departure Time:</Text>
-                  <Text style={styles.value}>{tripDetails.flight?.departureTime || 'N/A'}</Text>
-                </View>
-                <View style={styles.column}>
-                  <Text style={styles.label}>Arrival Time:</Text>
-                  <Text style={styles.value}>{tripDetails.flight?.arrivalTime || 'N/A'}</Text>
-                </View>
-              </View>
-              <View style={styles.row}>
-                <View style={styles.column}>
-                  <Text style={styles.label}>Flight Number:</Text>
-                  <Text style={styles.value}>{tripDetails.flight?.flightNumber || 'N/A'}</Text>
-                </View>
-                <View style={styles.column}>
-                  <Text style={styles.label}>Flight Price:</Text>
-                  <Text style={styles.value}>RS. {Math.floor((tripDetails.flight?.amount || 0) * 280)}</Text>
+                
+                <View style={styles.row}>
+                  <View style={styles.column}>
+                    <Text style={styles.label}>Airline:</Text>
+                    <Text style={styles.value}>{returnData.airline}</Text>
+                  </View>
+                  <View style={styles.column}>
+                    <Text style={styles.label}>Cabin Class:</Text>
+                    <Text style={styles.value}>{returnData.cabinClass}</Text>
+                  </View>
                 </View>
               </View>
             </>

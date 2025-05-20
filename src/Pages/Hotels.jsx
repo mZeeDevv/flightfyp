@@ -109,7 +109,7 @@ export default function HotelSearch() {
                     return true;
                 });
                 
-                console.log(`Filtered destination suggestions: ${filteredResults.length} cities/regions from ${result.data.length} total results`);
+                // console.log(`Filtered destination suggestions: ${filteredResults.length} cities/regions from ${result.data.length} total results`);
                 setDestinationSuggestions(filteredResults);
             } else {
                 setDestinationSuggestions([]);
@@ -132,7 +132,7 @@ export default function HotelSearch() {
     const handleSuggestionClick = (suggestion) => {
         setDestination(suggestion.name);
         setDestId(suggestion.dest_id);
-        console.log("Selected destination ID:", suggestion.dest_id);
+        // console.log("Selected destination ID:", suggestion.dest_id);
         setDestinationSuggestions([]);
     };
 
@@ -149,7 +149,7 @@ export default function HotelSearch() {
         }
 
         // Log destination ID when searching
-        console.log("Searching with destination ID:", destId);
+        // console.log("Searching with destination ID:", destId);
 
         // Calculate departure date based on arrival date and days of stay
         const arrival = new Date(arrivalDate);
@@ -180,29 +180,29 @@ export default function HotelSearch() {
         };
         
         // Debug: Log request details
-        console.log("API Request URL:", url.toString());
-        console.log("API Request Headers:", options.headers);
-        console.log("Search Parameters:", {
-            destId,
-            searchType: "HOTEL",
-            adults,
-            childrenAge: childrenAge.join(","),
-            roomQty,
-            arrivalDate,
-            departureDate,
-            daysOfStay
-        });
+        // console.log("API Request URL:", url.toString());
+        // console.log("API Request Headers:", options.headers);
+        // console.log("Search Parameters:", {
+        //     destId,
+        //     searchType: "HOTEL",
+        //     adults,
+        //     childrenAge: childrenAge.join(","),
+        //     roomQty,
+        //     arrivalDate,
+        //     departureDate,
+        //     daysOfStay
+        // });
 
         try {
-            console.log("Sending API request...");
+            // console.log("Sending API request...");
             const response = await fetch(url, options);
-            console.log("API Response Status:", response.status);
+            // console.log("API Response Status:", response.status);
             // Log headers for debugging
             const responseHeaders = {};
             response.headers.forEach((value, key) => {
                 responseHeaders[key] = value;
             });
-            console.log("API Response Headers:", responseHeaders);
+            // console.log("API Response Headers:", responseHeaders);
             
             if (!response.ok) {
                 const errorText = await response.text();

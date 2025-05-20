@@ -412,12 +412,12 @@ export default function Home() {
             )}
             
             {/* Add Flight Recommendations after the search section but before About */}
-            {/* {showContent && <FlightRecommendations />} */}
+            {showContent && <FlightRecommendations />}
             
             <About />
             <Cheap />
             <Newsletter />
-            {/* <ChatWidget /> */}
+            <ChatWidget />
         </>
     );
 }

@@ -110,12 +110,26 @@ const BudgetPlanner = () => {
     };// Add new function to handle flight selection
     const handleFlightSelection = (flightId, flightPrice, priceDetails) => {
         setSelectedFlight(flightId);
+        console.log('Selected flight with details:', { flightId, priceDetails });
+        
         // If we receive price details object with PKR, use it; otherwise convert USD to PKR
         const pricePKR = priceDetails?.pkr || (flightPrice * USD_TO_PKR_RATE);
+        
+        // Store the isRoundTrip flag from priceDetails if available
+        const isRoundTrip = priceDetails?.isRoundTrip || false;
+        
         setBudget(prev => ({
             ...prev,
             flight: pricePKR
         }));
+        
+        // Update search results with the round trip info if needed
+        if (isRoundTrip && searchResults) {
+            setSearchResults(prev => ({
+                ...prev,
+                isRoundTrip: true
+            }));
+        }
     };
 
     // Add new function to handle hotel selection
@@ -182,7 +196,10 @@ const BudgetPlanner = () => {
         }
 
         const fromId = await fetchAirportId(from);
-        const toId = await fetchAirportId(to);        if (fromId && toId) {            // Make sure budget values are properly parsed as numbers - use parseFloat for better accuracy with large numbers
+        const toId = await fetchAirportId(to);        
+    
+        if (fromId && toId) {            
+            // Make sure budget values are properly parsed as numbers - use parseFloat for better accuracy with large numbers
             const totalBudgetPKR = parseFloat(budget.total) || 0;
             const hotelBudgetPKR = parseFloat(budget.hotel) || 0;
             
@@ -202,6 +219,8 @@ const BudgetPlanner = () => {
             const searchResults = {
                 fromId,
                 toId,
+                from, // Add departure city name
+                to,   // Add arrival city name
                 departureDate,
                 returnDate: calculatedReturnDate, // Use calculated returnDate
                 cabinClass,
@@ -213,11 +232,13 @@ const BudgetPlanner = () => {
                 selectedHotel,
                 daysOfStay,
                 travelCategory,
+                tripType, // Add trip type (ONE_WAY or RETURN)
                 USD_TO_PKR_RATE, // Pass conversion rate to child components
             };
 
             // Set search results to state
-            setSearchResults(searchResults);        } else {
+            setSearchResults(searchResults);
+        } else {
             if (!fromId && !toId) {
                 setError("Please enter valid departure and arrival cities. Both city names could not be recognized.");
             } else if (!fromId) {

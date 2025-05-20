@@ -71,7 +71,9 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
   const generatePDFBlob = async (tripDetails, transactionId) => {
     if (!tripDetails || !userData) {
       throw new Error("Trip details or user data is missing");
-    }    // Ensure hotel prices are correctly calculated for the PDF
+    }
+    
+    // Ensure hotel prices are correctly calculated for the PDF
     const pdfTripDetails = {
       ...tripDetails,
       hotel: {
@@ -79,6 +81,11 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
         pricePerDay: parseFloat(tripDetails.hotel?.pricePerDay || 0),
         totalPrice: parseFloat(tripDetails.hotel?.totalPrice || 0) || 
                   (parseFloat(tripDetails.hotel?.pricePerDay || 0) * parseInt(tripDetails.hotel?.daysOfStay || 1))
+      },
+      flight: {
+        ...tripDetails.flight,
+        // Ensure tripType is properly set
+        tripType: tripDetails.flight.tripType || (tripDetails.flight.isRoundTrip ? "ROUNDTRIP" : "ONE_WAY")
       }
     };
     
@@ -86,8 +93,29 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
       original: tripDetails,
       modified: pdfTripDetails,
       hotelPricePerDay: pdfTripDetails.hotel?.pricePerDay,
-      hotelTotalPrice: pdfTripDetails.hotel?.totalPrice
+      hotelTotalPrice: pdfTripDetails.hotel?.totalPrice,
+      tripType: pdfTripDetails.flight.tripType,
+      isRoundTrip: pdfTripDetails.flight.isRoundTrip
     });
+    
+    // Create a basic searchResults object with necessary info
+    // This provides fallback data that TripInvoicePDF might need
+    const searchResults = {
+      from: tripDetails.flight?.departure,
+      to: tripDetails.flight?.arrival,
+      departureDate: tripDetails.flight?.departureTime?.split('T')[0],
+      // Only include returnDate if it's explicitly a round trip
+      returnDate: tripDetails.flight?.tripType === "ROUNDTRIP" || tripDetails.flight?.isRoundTrip ? 
+              (tripDetails.flight?.returnDepartureTime?.split('T')[0] || 
+              tripDetails.flight?.arrivalTime?.split('T')[0]) : 
+              null,
+      // Explicitly pass the trip type
+      tripType: tripDetails.flight?.tripType || (tripDetails.flight?.isRoundTrip ? "RETURN" : "ONE_WAY"),
+      cabinClass: tripDetails.flight?.cabinClass || "ECONOMY",
+      daysOfStay: tripDetails.hotel?.daysOfStay || 1,
+    };
+    
+    console.log("Providing searchResults to PDF:", searchResults);
     
     const pdfElement = (
       <TripInvoicePDF
@@ -96,6 +124,7 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
         paymentMethod={paymentMethod}
         userData={userData}
         totalAmount={flightAmount + pdfTripDetails.hotel.totalPrice}
+        searchResults={searchResults}  // Include searchResults
       />
     );
 
@@ -233,39 +262,40 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
     setProcessing(true);
 
     try {
-      // Log full trip data again right before processing
-      console.log("Processing booking with trip data:", {
-        flight: tripData.flight,
-        hotel: {
-          ...tripData.hotel,
-          totalPrice: tripData.hotel?.totalPrice || 0,
-          pricePerDay: tripData.hotel?.pricePerDay || 0,
-          daysOfStay: tripData.hotel?.daysOfStay || 1,
-          calculatedTotal: (tripData.hotel?.pricePerDay || 0) * (tripData.hotel?.daysOfStay || 1)
-        }
-      });
-
-      // Check if this is a round trip flight to correctly handle return flight data
-      const isRoundTrip = tripData.flight?.isRoundTrip || 
-                         (tripData.flight?.returnDepartureTime && tripData.flight?.returnArrivalTime) ||
-                         (tripData.flight?.tripType === "ROUNDTRIP");
-                         
-      console.log("Flight is round trip:", isRoundTrip);
+      // Log full trip data for debugging
+      console.log("Processing booking with trip data:", tripData);
+      
+      // Explicitly check for one-way trip type
+      const tripType = tripData.flight?.tripType || searchResults?.tripType;
+      const isOneWay = tripType === "ONE_WAY" || tripType === "ONEWAY";
+      const isRoundTrip = !isOneWay && (
+        tripType === "ROUNDTRIP" || 
+        tripType === "RETURN" || 
+        tripData.flight?.isRoundTrip || 
+        Boolean(tripData.flight?.returnDepartureTime && tripData.flight?.returnArrivalTime)
+      );
+      
+      console.log("Flight trip type:", tripType, "isOneWay:", isOneWay, "isRoundTrip:", isRoundTrip);
 
       // Simulate payment processing
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       const newTransactionId = `TRIP-${Math.random().toString(36).substr(2, 9)}`;
       
-      // Make sure tripData includes isRoundTrip flag
+      // Make sure tripData includes correct tripType flag
       const enhancedTripData = {
         ...tripData,
         flight: {
           ...tripData.flight,
           isRoundTrip: isRoundTrip,
-          tripType: isRoundTrip ? "ROUNDTRIP" : "ONEWAY"
+          tripType: isOneWay ? "ONE_WAY" : (tripType || (isRoundTrip ? "ROUNDTRIP" : "ONE_WAY"))
         }
       };
+      
+      console.log("Enhanced trip data for PDF:", {
+        isRoundTrip: enhancedTripData.flight.isRoundTrip, 
+        tripType: enhancedTripData.flight.tripType
+      });
       
       // Generate PDF with enhanced trip data
       const pdfBlob = await generatePDFBlob(enhancedTripData, newTransactionId);
@@ -286,6 +316,10 @@ export default function BookTrip({ tripData, onSuccess, buttonLabel = "Book This
       }
     } catch (error) {
       console.error("Error processing payment: ", error);
+      // Provide more detailed error information for debugging
+      if (error.stack) {
+        console.error("Error stack:", error.stack);
+      }
       toast.error("Failed to process payment. Please try again.");
     } finally {
       setProcessing(false);
