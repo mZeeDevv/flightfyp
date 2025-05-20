@@ -6,6 +6,9 @@ import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import Spinner from "../Components/Spinner";
 
+// Define USD to PKR conversion rate
+const USD_TO_PKR_RATE = 280;
+
 export default function UserHotels() {
   const [hotels, setHotels] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,17 +36,24 @@ export default function UserHotels() {
         const hotelsList = [];
 
         querySnap.forEach((doc) => {
-          hotelsList.push({
-            id: doc.id,
-            ...doc.data(),
-          });
+          const hotelData = doc.data();
+          // Validate hotel data structure before adding to list
+          if (hotelData && hotelData.hotel) {
+            hotelsList.push({
+              id: doc.id,
+              ...hotelData,
+            });
+          } else {
+            console.warn("Skipping invalid hotel booking record:", doc.id);
+          }
         });
 
+        console.log("Fetched hotel bookings:", hotelsList);
         setHotels(hotelsList);
-        setLoading(false);
       } catch (error) {
         console.error("Error fetching hotel bookings:", error);
         setError("Failed to load your hotel bookings");
+      } finally {
         setLoading(false);
       }
     };
@@ -54,20 +64,58 @@ export default function UserHotels() {
   // Format date to a more readable format
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    
+    try {
+      const date = new Date(dateString);
+      // Check if date is valid
+      if (isNaN(date.getTime())) return "Invalid date";
+      
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    } catch (error) {
+      console.warn("Error formatting date:", dateString, error);
+      return "Invalid date";
+    }
   };
 
-  // Calculate checkout date
+  // Calculate checkout date with error handling
   const calculateCheckoutDate = (checkInDate, daysOfStay) => {
     if (!checkInDate) return "N/A";
-    const date = new Date(checkInDate);
-    date.setDate(date.getDate() + parseInt(daysOfStay));
-    return formatDate(date);
+    
+    try {
+      const date = new Date(checkInDate);
+      if (isNaN(date.getTime())) return "Invalid date";
+      
+      // Ensure daysOfStay is a valid number
+      const days = parseInt(daysOfStay);
+      if (isNaN(days)) return "Invalid duration";
+      
+      date.setDate(date.getDate() + days);
+      return formatDate(date);
+    } catch (error) {
+      console.warn("Error calculating checkout date:", error);
+      return "N/A";
+    }
+  };
+
+  // Function to safely format prices
+  const formatPrice = (price, currency = "PKR") => {
+    // Handle undefined, null or NaN values
+    if (price === undefined || price === null || isNaN(parseFloat(price))) {
+      return currency === "PKR" ? "RS. 0" : "$0";
+    }
+    
+    const numericPrice = parseFloat(price);
+    
+    if (currency === "PKR") {
+      // Ensure we multiply by the conversion rate for PKR
+      return `RS. ${Math.floor(numericPrice * USD_TO_PKR_RATE).toLocaleString()}`;
+    } else {
+      return `$${numericPrice.toFixed(2)}`;
+    }
   };
 
   if (loading) {
@@ -131,16 +179,20 @@ export default function UserHotels() {
               key={hotel.id}
               className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition-all duration-300"
             >
-              {hotel.hotel.imageUrl ? (
+              {/* Hotel image section with safe access */}
+              {hotel.hotel?.imageUrl ? (
                 <div className="h-48 overflow-hidden relative">
                   <img
                     src={hotel.hotel.imageUrl}
-                    alt={hotel.hotel.name}
+                    alt={hotel.hotel?.name || "Hotel"}
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute top-0 right-0 bg-blue-600 text-white px-3 py-1 m-2 rounded-full text-xs font-medium">
-                    {hotel.paymentDetails.paymentStatus || "Confirmed"}
-                  </div>
+                  {/* Display payment status if available */}
+                  {hotel.paymentDetails?.paymentStatus && (
+                    <div className="absolute top-0 right-0 bg-blue-600 text-white px-3 py-1 m-2 rounded-full text-xs font-medium">
+                      {hotel.paymentDetails.paymentStatus}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="h-48 bg-gray-200 flex items-center justify-center">
@@ -149,16 +201,13 @@ export default function UserHotels() {
               )}
 
               <div className="p-5">
-                <h2 className="text-xl font-bold mb-2 text-gray-800">{hotel.hotel.name}</h2>
+                <h2 className="text-xl font-bold mb-2 text-gray-800">{hotel.hotel?.name || "Unknown Hotel"}</h2>
                 
-                <div className="flex items-center mb-3">
-                  <FaMapMarkerAlt className="text-red-500 mr-2" />
-                  <p className="text-sm text-gray-600 truncate">{hotel.hotel.location || "Location not specified"}</p>
-                </div>
+                
                 
                 <div className="flex items-center mb-3">
                   <FaStar className="text-yellow-500 mr-2" />
-                  <p className="text-sm text-gray-600">{hotel.hotel.rating || "Not rated"}</p>
+                  <p className="text-sm text-gray-600">{hotel.hotel?.rating || "Not rated"}</p>
                 </div>
 
                 <div className="bg-gray-100 p-3 rounded-lg mb-4">
@@ -167,7 +216,7 @@ export default function UserHotels() {
                       <FaCalendarAlt className="text-blue-500 mr-2" />
                       <span className="text-sm font-medium">Check-in:</span>
                     </div>
-                    <span className="text-sm">{formatDate(hotel.hotel.checkInDate)}</span>
+                    <span className="text-sm">{formatDate(hotel.hotel?.checkInDate)}</span>
                   </div>
                   <div className="flex justify-between">
                     <div className="flex items-center">
@@ -175,7 +224,7 @@ export default function UserHotels() {
                       <span className="text-sm font-medium">Check-out:</span>
                     </div>
                     <span className="text-sm">
-                      {calculateCheckoutDate(hotel.hotel.checkInDate, hotel.hotel.daysOfStay)}
+                      {calculateCheckoutDate(hotel.hotel?.checkInDate, hotel.hotel?.daysOfStay)}
                     </span>
                   </div>
                 </div>
@@ -185,7 +234,7 @@ export default function UserHotels() {
                     Booked on: <span className="font-medium">{formatDate(hotel.createdAt)}</span>
                   </p>
                   <p className="text-sm text-gray-500">
-                    Transaction ID: <span className="font-medium">{hotel.transactionId}</span>
+                    Transaction ID: <span className="font-medium">{hotel.transactionId || "N/A"}</span>
                   </p>
                 </div>
 
@@ -193,18 +242,18 @@ export default function UserHotels() {
                   <div className="flex justify-between mb-3">
                     <span className="text-sm text-gray-600">Price per night</span>
                     <span className="text-sm font-medium text-gray-800">
-                      RS. {hotel.hotel.pricePerNight * 270}
+                      {formatPrice(hotel.hotel?.pricePerDay || hotel.hotel?.pricePerNight)}
                     </span>
                   </div>
                   <div className="flex justify-between mb-3">
                     <span className="text-sm text-gray-600">Stay duration</span>
                     <span className="text-sm font-medium text-gray-800">
-                      {hotel.hotel.daysOfStay} {hotel.hotel.daysOfStay === 1 ? "night" : "nights"}
+                      {hotel.hotel?.daysOfStay || 1} {(hotel.hotel?.daysOfStay || 1) === 1 ? "night" : "nights"}
                     </span>
                   </div>
                   <div className="flex justify-between font-bold">
                     <span className="text-gray-800">Total</span>
-                    <span className="text-blue-600">RS. {hotel.hotel.totalPrice * 270}</span>
+                    <span className="text-blue-600">{formatPrice(hotel.hotel?.totalPrice)}</span>
                   </div>
                 </div>
 

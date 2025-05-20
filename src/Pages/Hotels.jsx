@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaHotel, FaSearch, FaSpinner, FaStar, FaTimes, FaCreditCard, FaFileDownload, FaInfoCircle } from "react-icons/fa";
 import "../App.css";
-import { addDoc, collection, updateDoc, doc } from "firebase/firestore";
+import { addDoc, collection, updateDoc, doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 // Remove Firebase Storage import
 import HotelDetailsSidebar from "../Components/HotelDetailsSidebar";
@@ -54,6 +54,7 @@ export default function HotelSearch() {
     const API_HOST = "booking-com15.p.rapidapi.com";
     const navigate = useNavigate();
     const uid = localStorage.getItem("userId");
+    const [userName, setUserName] = useState("");
     
     // Fetch destination suggestions
     const fetchDestinationSuggestions = async (query) => {
@@ -348,6 +349,30 @@ export default function HotelSearch() {
         }
     }, []);
 
+    // Get current user's name from Firestore when component loads
+    useEffect(() => {
+        const getUserName = async () => {
+            if (uid) {
+                try {
+                    const userDocRef = doc(db, "users", uid);
+                    const userDocSnap = await getDoc(userDocRef);
+                    
+                    if (userDocSnap.exists()) {
+                        const userData = userDocSnap.data();
+                        if (userData.name) {
+                            console.log("Found user name in Firestore:", userData.name);
+                            setUserName(userData.name);
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error fetching user name:", error);
+                }
+            }
+        };
+        
+        getUserName();
+    }, [uid]);
+
     // Book hotel function - Define this BEFORE handleBookHotelFromDetails
     const handleBookHotel = (hotel) => {
         if (!uid) {
@@ -414,77 +439,128 @@ export default function HotelSearch() {
         const transactionId = generateTransactionId();
         setTransactionId(transactionId);
 
-        // Prepare booking data with the structure expected by the HotelInvoicePDF component
-        const bookingDetails = {
-            transactionId,
-            userId: uid,
-            hotelId: selectedHotel.hotel_id,
-            hotel: {
-                id: selectedHotel.hotel_id,
-                name: selectedHotel.property.name,
-                location: selectedHotel.property.address || "",
-                pricePerNight: Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value / daysOfStay),
-                totalPrice: Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value),
-                daysOfStay: daysOfStay,
-                checkInDate: arrivalDate,
-                checkOutDate: getCheckoutDate(),
-                rating: selectedHotel.property.reviewScore || "N/A",
-                imageUrl: selectedHotel.property.photoUrls[0] || "",
-            },
-            roomQty,
-            adults,
-            childrenAge,
-            arrivalDate,
-            departureDate: getCheckoutDate(),
-            totalAmount: Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value),
-            paymentMethod,
-            status: "pending",
-            createdAt: new Date().toISOString()
-        };
-        setBookingData(bookingDetails);
-
         try {
+            // Prepare booking data with the structure expected by the HotelInvoicePDF component
+            const bookingDetails = {
+                transactionId,
+                userId: uid,
+                hotelId: selectedHotel.hotel_id,
+                hotel: {
+                    id: selectedHotel.hotel_id,
+                    name: selectedHotel.property.name,
+                    location: selectedHotel.property.address || "",
+                    pricePerNight: Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value / daysOfStay),
+                    totalPrice: Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value),
+                    daysOfStay: daysOfStay,
+                    checkInDate: arrivalDate,
+                    checkOutDate: getCheckoutDate(),
+                    rating: selectedHotel.property.reviewScore || "N/A",
+                    imageUrl: selectedHotel.property.photoUrls[0] || "",
+                },
+                roomQty,
+                adults,
+                childrenAge,
+                arrivalDate,
+                departureDate: getCheckoutDate(),
+                totalAmount: Math.floor(selectedHotel.property.priceBreakdown.grossPrice.value),
+                paymentMethod,
+                paymentDetails: {
+                    cardLast4: cardNumber.slice(-4),
+                    cardName: cardName,
+                    paymentStatus: "confirmed",
+                },
+                // Use userName from Firestore first, fallback to cardName
+                customerName: userName || cardName,
+                status: "pending",
+                createdAt: new Date().toISOString()
+            };
+            setBookingData(bookingDetails);
+
             // 1. Add booking record to Firestore
             const bookingDocRef = await addDoc(collection(db, "user_hotels"), bookingDetails);
             console.log("Booking record created with ID:", bookingDocRef.id);
             
-            // 2. Generate and upload invoice PDF to Cloudinary
-            const invoicePdfBlob = await pdf(
+            // 3. Generate PDF document with proper error handling
+            try {
+              console.log("Creating PDF document with booking details:", bookingDetails);
+              console.log("Using customer name:", bookingDetails.customerName);
+              
+              // Create the actual invoice PDF
+              const invoicePdfBlob = await pdf(
                 <HotelInvoicePDF 
-                    bookingDetails={{
-                        ...bookingDetails,
-                        customerName: cardName,
-                    }} 
-                    transactionId={transactionId}
-                    paymentMethod={paymentMethod}
+                  bookingDetails={bookingDetails}
+                  transactionId={transactionId}
+                  paymentMethod={paymentMethod}
                 />
-            ).toBlob();
-            
-            setUploadingInvoice(true);
-            
-            // Upload PDF to Cloudinary
-            const pdfUrl = await uploadPdfToCloudinary(invoicePdfBlob, transactionId);
-            setInvoiceUrl(pdfUrl);
-            setUploadingInvoice(false);
-            
-            // 3. Update booking record with Cloudinary invoice URL and change status to 'confirmed'
-            await updateDoc(doc(db, "user_hotels", bookingDocRef.id), {
+              ).toBlob();
+              
+              console.log("PDF blob created successfully");
+              
+              // 4. Upload the PDF to Cloudinary
+              setUploadingInvoice(true);
+              const pdfUrl = await uploadPdfToCloudinary(invoicePdfBlob, transactionId);
+              setInvoiceUrl(pdfUrl);
+              setUploadingInvoice(false);
+              
+              // 5. Update the booking record with the invoice URL
+              await updateDoc(doc(db, "user_hotels", bookingDocRef.id), {
                 invoiceUrl: pdfUrl,
                 status: "confirmed",
                 updatedAt: new Date().toISOString()
-            });
-            
-            // 4. No need to add another duplicate record to user_hotels collection, update the existing one instead
-            console.log("User hotel booking record updated with Cloudinary invoice URL");
-            
-            // Show success and mark booking as complete
-            setBookingComplete(true);
-            setProcessingPayment(false);
-            toast.success("Hotel booking successful!");
-            
+              });
+              
+              console.log("User hotel booking record updated with Cloudinary invoice URL");
+              
+              // Show success and mark booking as complete
+              setBookingComplete(true);
+              setProcessingPayment(false);
+              toast.success("Hotel booking successful!");
+              
+            } catch (pdfError) {
+              console.error("Error generating PDF:", pdfError);
+              
+              // Create a simpler fallback PDF if the custom one fails
+              try {
+                console.log("Attempting to create fallback PDF");
+                const fallbackPdfBlob = await pdf(
+                  <Document>
+                    <Page size="A4">
+                      <View style={{ padding: 30 }}>
+                        <Text style={{ fontSize: 24, marginBottom: 20 }}>Hotel Booking Invoice</Text>
+                        <Text style={{ marginBottom: 10 }}>Transaction ID: {transactionId}</Text>
+                        <Text style={{ marginBottom: 10 }}>Customer: {userName}</Text>
+                        <Text style={{ marginBottom: 10 }}>Hotel: {bookingDetails.hotel.name}</Text>
+                        <Text style={{ marginBottom: 10 }}>Check-in: {arrivalDate}</Text>
+                        <Text style={{ marginBottom: 10 }}>Check-out: {getCheckoutDate()}</Text>
+                        <Text style={{ marginBottom: 10 }}>Total: ${bookingDetails.hotel.totalPrice} USD</Text>
+                      </View>
+                    </Page>
+                  </Document>
+                ).toBlob();
+                
+                setUploadingInvoice(true);
+                const fallbackPdfUrl = await uploadPdfToCloudinary(fallbackPdfBlob, transactionId);
+                setInvoiceUrl(fallbackPdfUrl);
+                setUploadingInvoice(false);
+                
+                await updateDoc(doc(db, "user_hotels", bookingDocRef.id), {
+                  invoiceUrl: fallbackPdfUrl,
+                  status: "confirmed",
+                  updatedAt: new Date().toISOString()
+                });
+                
+                setBookingComplete(true);
+                setProcessingPayment(false);
+                toast.success("Hotel booking successful!");
+                
+              } catch (fallbackError) {
+                console.error("Error generating fallback PDF:", fallbackError);
+                throw new Error("Could not generate invoice PDF");
+              }
+            }
         } catch (error) {
             console.error("Error processing payment:", error);
-            setError("Error processing payment. Please try again.");
+            setError(`Payment processing error: ${error.message}`);
             setProcessingPayment(false);
             toast.error("Failed to process booking. Please try again.");
         }
@@ -922,6 +998,15 @@ export default function HotelSearch() {
                                         </div>
                                     </div>
 
+                                    {/* Add info about the current user */}
+                                    {userName && (
+                                        <div className="mb-4 bg-blue-50 p-3 rounded-lg">
+                                            <p className="text-sm text-blue-700">
+                                                Booking for: <span className="font-semibold">{userName}</span>
+                                            </p>
+                                        </div>
+                                    )}
+
                                     <div className="mb-4">
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
                                             Name on Card
@@ -930,7 +1015,7 @@ export default function HotelSearch() {
                                             type="text"
                                             value={cardName}
                                             onChange={(e) => setCardName(e.target.value)}
-                                            placeholder="John Doe"
+                                            placeholder={userName || "John Doe"}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                         />
                                     </div>

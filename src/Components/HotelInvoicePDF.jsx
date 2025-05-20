@@ -96,46 +96,12 @@ const styles = StyleSheet.create({
 
 // Create Document Component
 const HotelInvoicePDF = ({ bookingDetails, transactionId, paymentMethod }) => {
-  const [userName, setUserName] = useState('');
-  const auth = getAuth();
-  const currentUser = auth.currentUser;
-
-  // Get current user's name and fetch user data on component mount
-  useEffect(() => {
-    const fetchUserData = async () => {
-      // First priority: Use current authenticated user's display name
-      if (currentUser && currentUser.displayName) {
-        console.log("Using current user display name:", currentUser.displayName);
-        setUserName(currentUser.displayName);
-        return;
-      }
-      
-      // Second priority: Use card name from payment details
-      if (bookingDetails?.paymentDetails?.cardName) {
-        console.log("Using card name:", bookingDetails.paymentDetails.cardName);
-        setUserName(bookingDetails.paymentDetails.cardName);
-        return;
-      }
-
-      // Third priority: Fetch from Firestore using userId
-      if (bookingDetails?.userId) {
-        try {
-          const db = getFirestore();
-          const userDoc = await getDoc(doc(db, "users", bookingDetails.userId));
-          
-          if (userDoc.exists()) {
-            console.log("Using Firestore name:", userDoc.data().name);
-            setUserName(userDoc.data().name);
-          }
-        } catch (error) {
-          console.error("Error fetching user data:", error);
-        }
-      }
-    };
-    
-    fetchUserData();
-  }, [bookingDetails?.userId, auth, currentUser, bookingDetails?.paymentDetails?.cardName]);
-
+  // Simplified approach without fetching name
+  const [nameLoaded, setNameLoaded] = useState(true); // Always true since we're not fetching
+  
+  // Console log the name we're getting directly from the props
+  console.log("HotelInvoicePDF - Customer name received:", bookingDetails?.customerName);
+  
   const formatDate = (dateString) => {
     try {
       const date = new Date(dateString);
@@ -176,16 +142,15 @@ const HotelInvoicePDF = ({ bookingDetails, transactionId, paymentMethod }) => {
           </View>
           {/* Placeholder for logo */}
           <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#3b82f6' }}>JetSeeker</Text>
-        </View>        {/* Customer Information */}
-        <View style={styles.section}>          <Text style={styles.sectionTitle}>Customer Information</Text>          <View style={styles.row}>
+        </View>
+        {/* Customer Information */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Customer Information</Text>
+          <View style={styles.row}>
             <Text style={styles.label}>Name:</Text>
-            <Text style={styles.value}>{
-              // Display name priority: userName (set in useEffect) > cardName > current user's display name
-              userName || 
-              bookingDetails?.paymentDetails?.cardName || 
-              (auth.currentUser ? auth.currentUser.displayName : null) || 
-              'Customer'
-            }</Text>
+            <Text style={styles.value}>
+              {bookingDetails.customerName || 'Customer'}
+            </Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Booking Date:</Text>
